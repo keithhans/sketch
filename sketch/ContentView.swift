@@ -11,7 +11,10 @@ struct ContentView: View {
     @State private var lines: [Line] = []
     @State private var currentLine: Line?
     @State private var showPlus = true
-    @State private var sentLinesCount = 0  // 新增：已发送线段的数量
+    @State private var sentLinesCount = 0
+    @State private var showConfigSheet = false
+    @State private var serverAddress = ""
+    @State private var isConnected = false
     
     var body: some View {
         ZStack {
@@ -62,11 +65,32 @@ struct ContentView: View {
             
             VStack {
                 HStack {
+                    Button(action: {
+                        showConfigSheet = true
+                    }) {
+                        Image(systemName: "gear")
+                            .foregroundColor(.white)
+                            .padding(10)
+                            .background(Color.gray)
+                            .clipShape(Circle())
+                    }
+                    
+                    Button(action: {
+                        toggleConnection()
+                    }) {
+                        Image(systemName: isConnected ? "checkmark.circle" : "xmark.circle")
+                            .foregroundColor(.white)
+                            .padding(10)
+                            .background(isConnected ? Color.green : Color.red)
+                            .clipShape(Circle())
+                    }
+                    
                     Spacer()
+                    
                     Button(action: {
                         lines.removeAll()
                         currentLine = nil
-                        sentLinesCount = 0  // 重置已发送线段数量
+                        sentLinesCount = 0
                     }) {
                         Image(systemName: "trash")
                             .foregroundColor(.white)
@@ -74,10 +98,12 @@ struct ContentView: View {
                             .background(Color.red)
                             .clipShape(Circle())
                     }
-                    .padding(.top, 50)
-                    .padding(.trailing, 20)
                 }
+                .padding(.top, 50)
+                .padding(.horizontal, 20)
+                
                 Spacer()
+                
                 HStack {
                     Spacer()
                     Button(action: {
@@ -117,6 +143,9 @@ struct ContentView: View {
             }
         }
         .edgesIgnoringSafeArea(.all)
+        .sheet(isPresented: $showConfigSheet) {
+            ConfigView(serverAddress: $serverAddress)
+        }
     }
     
     private func drawPlus(context: GraphicsContext, at point: CGPoint, color: Color) {
@@ -155,6 +184,19 @@ struct ContentView: View {
             sentLinesCount = lines.count
         }
     }
+    
+    private func toggleConnection() {
+        if isConnected {
+            // 断开连接
+            print("断开连接")
+            isConnected = false
+        } else {
+            // 连接服务器
+            print("连接到服务器: \(serverAddress)")
+            // 这里应该实现实际的连接逻辑
+            isConnected = true // 假设连接成功
+        }
+    }
 }
 
 struct Line {
@@ -182,6 +224,32 @@ struct Line {
     
     private func angle(between point1: CGPoint, _ point2: CGPoint) -> CGFloat {
         return atan2(point2.y - point1.y, point2.x - point1.x)
+    }
+}
+
+struct ConfigView: View {
+    @Binding var serverAddress: String
+    @Environment(\.presentationMode) var presentationMode
+    
+    var body: some View {
+        VStack {
+            HStack {
+                Text("配置")
+                    .font(.headline)
+                Spacer()
+                Button("完成") {
+                    presentationMode.wrappedValue.dismiss()
+                }
+            }
+            .padding()
+            
+            Form {
+                Section(header: Text("服务器配置")) {
+                    TextField("IP:Port", text: $serverAddress)
+                }
+            }
+        }
+        .frame(width: 300, height: 150)
     }
 }
 
