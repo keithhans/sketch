@@ -90,16 +90,6 @@ struct ContentView: View {
                                 .clipShape(Circle())
                         }
                         
-                        Button(action: {
-                            resetRobot()
-                        }) {
-                            Image(systemName: "arrow.counterclockwise")
-                                .foregroundColor(.white)
-                                .padding(10)
-                                .background(Color.blue)
-                                .clipShape(Circle())
-                        }
-                        
                         Spacer()
                         
                         Button(action: {
@@ -224,18 +214,6 @@ struct ContentView: View {
         }
     }
     
-    private func resetRobot() {
-        let message: [String: Any] = [
-            "type": "RESET",
-            "data": [
-                "width": screenSize.width,
-                "height": screenSize.height
-            ]
-        ]
-        sendJSONMessage(message)
-        print("Reset robot with screen size: \(screenSize.width) x \(screenSize.height)")
-    }
-    
     private func sendJSONMessage(_ message: [String: Any]) {
         guard let connection = connection else {
             print("No active connection")
@@ -271,6 +249,7 @@ struct ContentView: View {
                 print("Connected to server")
                 DispatchQueue.main.async {
                     self.isConnected = true
+                    self.sendResetMessage() // 连接成功后发送重置消息
                 }
             } catch {
                 print("Connection failed: \(error.localizedDescription)")
@@ -280,6 +259,18 @@ struct ContentView: View {
                 }
             }
         }
+    }
+    
+    private func sendResetMessage() {
+        let message: [String: Any] = [
+            "type": "RESET",
+            "data": [
+                "width": screenSize.width,
+                "height": screenSize.height
+            ]
+        ]
+        sendJSONMessage(message)
+        print("Sent reset message with screen size: \(screenSize.width) x \(screenSize.height)")
     }
     
     private func disconnectFromServer() {
