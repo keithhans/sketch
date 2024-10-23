@@ -15,143 +15,150 @@ struct ContentView: View {
     @State private var showPlus = true
     @State private var sentLinesCount = 0
     @State private var showConfigSheet = false
-    @State private var serverAddress = ""
+    @State private var serverAddress = "192.168.31.158:6666"
     @State private var isConnected = false
+    @State private var connection: NWConnection?
+    @State private var screenSize: CGSize = .zero
     
     var body: some View {
-        ZStack {
-            Canvas { context, size in
-                for (index, line) in lines.enumerated() {
-                    var path = Path()
-                    path.addLines(line.points)
-                    context.stroke(path, with: .color(index < sentLinesCount ? .gray : .black), lineWidth: 3)
+        GeometryReader { geometry in
+            ZStack {
+                Canvas { context, size in
+                    for (index, line) in lines.enumerated() {
+                        var path = Path()
+                        path.addLines(line.points)
+                        context.stroke(path, with: .color(index < sentLinesCount ? .gray : .black), lineWidth: 3)
+                        
+                        if showPlus {
+                            for point in line.points {
+                                let color = Color(hue: Double(index) / Double(lines.count), saturation: 1, brightness: 1)
+                                drawPlus(context: context, at: point, color: color)
+                            }
+                        }
+                    }
                     
-                    if showPlus {
-                        for point in line.points {
-                            let color = Color(hue: Double(index) / Double(lines.count), saturation: 1, brightness: 1)
-                            drawPlus(context: context, at: point, color: color)
+                    if let line = currentLine {
+                        var path = Path()
+                        path.addLines(line.points)
+                        context.stroke(path, with: .color(.black), lineWidth: 3)
+                        
+                        if showPlus {
+                            for point in line.points {
+                                drawPlus(context: context, at: point, color: .blue)
+                            }
                         }
                     }
                 }
+                .gesture(
+                    DragGesture(minimumDistance: 0, coordinateSpace: .local)
+                        .onChanged { value in
+                            if currentLine == nil {
+                                currentLine = Line(points: [value.location])
+                            } else {
+                                currentLine?.points.append(value.location)
+                            }
+                        }
+                        .onEnded { _ in
+                            if var line = currentLine {
+                                line.mergeCloseAngles()
+                                lines.append(line)
+                                currentLine = nil
+                            }
+                        }
+                )
+                .background(Color.white)
                 
-                if let line = currentLine {
-                    var path = Path()
-                    path.addLines(line.points)
-                    context.stroke(path, with: .color(.black), lineWidth: 3)
-                    
-                    if showPlus {
-                        for point in line.points {
-                            drawPlus(context: context, at: point, color: .blue)
+                VStack {
+                    HStack {
+                        Button(action: {
+                            showConfigSheet = true
+                        }) {
+                            Image(systemName: "gear")
+                                .foregroundColor(.white)
+                                .padding(10)
+                                .background(Color.gray)
+                                .clipShape(Circle())
+                        }
+                        
+                        Button(action: {
+                            toggleConnection()
+                        }) {
+                            Image(systemName: isConnected ? "checkmark.circle" : "xmark.circle")
+                                .foregroundColor(.white)
+                                .padding(10)
+                                .background(isConnected ? Color.green : Color.red)
+                                .clipShape(Circle())
+                        }
+                        
+                        Button(action: {
+                            resetRobot()
+                        }) {
+                            Image(systemName: "arrow.counterclockwise")
+                                .foregroundColor(.white)
+                                .padding(10)
+                                .background(Color.blue)
+                                .clipShape(Circle())
+                        }
+                        
+                        Spacer()
+                        
+                        Button(action: {
+                            lines.removeAll()
+                            currentLine = nil
+                            sentLinesCount = 0
+                        }) {
+                            Image(systemName: "trash")
+                                .foregroundColor(.white)
+                                .padding(10)
+                                .background(Color.red)
+                                .clipShape(Circle())
                         }
                     }
+                    .padding(.top, 50)
+                    .padding(.horizontal, 20)
+                    
+                    Spacer()
+                    
+                    HStack {
+                        Spacer()
+                        Button(action: {
+                            showPlus.toggle()
+                        }) {
+                            Image(systemName: showPlus ? "plus.circle.fill" : "plus.circle")
+                                .foregroundColor(.white)
+                                .padding(10)
+                                .background(Color.blue)
+                                .clipShape(Circle())
+                        }
+                        
+                        Button(action: {
+                            undoLastLine()
+                        }) {
+                            Image(systemName: "arrow.uturn.backward")
+                                .foregroundColor(.white)
+                                .padding(10)
+                                .background(Color.orange)
+                                .clipShape(Circle())
+                        }
+                        .disabled(lines.count <= sentLinesCount)
+                        
+                        Button(action: {
+                            sendLines()
+                        }) {
+                            Image(systemName: "paperplane.fill")
+                                .foregroundColor(.white)
+                                .padding(10)
+                                .background(Color.green)
+                                .clipShape(Circle())
+                        }
+                        .disabled(lines.count <= sentLinesCount)
+                    }
+                    .padding(.bottom, 20)
+                    .padding(.trailing, 20)
                 }
             }
-            .gesture(
-                DragGesture(minimumDistance: 0, coordinateSpace: .local)
-                    .onChanged { value in
-                        if currentLine == nil {
-                            currentLine = Line(points: [value.location])
-                        } else {
-                            currentLine?.points.append(value.location)
-                        }
-                    }
-                    .onEnded { _ in
-                        if var line = currentLine {
-                            line.mergeCloseAngles()
-                            lines.append(line)
-                            currentLine = nil
-                        }
-                    }
-            )
-            .background(Color.white)
-            
-            VStack {
-                HStack {
-                    Button(action: {
-                        showConfigSheet = true
-                    }) {
-                        Image(systemName: "gear")
-                            .foregroundColor(.white)
-                            .padding(10)
-                            .background(Color.gray)
-                            .clipShape(Circle())
-                    }
-                    
-                    Button(action: {
-                        toggleConnection()
-                    }) {
-                        Image(systemName: isConnected ? "checkmark.circle" : "xmark.circle")
-                            .foregroundColor(.white)
-                            .padding(10)
-                            .background(isConnected ? Color.green : Color.red)
-                            .clipShape(Circle())
-                    }
-                    
-                    Button(action: {
-                        resetRobot()
-                    }) {
-                        Image(systemName: "arrow.counterclockwise")
-                            .foregroundColor(.white)
-                            .padding(10)
-                            .background(Color.blue)
-                            .clipShape(Circle())
-                    }
-                    
-                    Spacer()
-                    
-                    Button(action: {
-                        lines.removeAll()
-                        currentLine = nil
-                        sentLinesCount = 0
-                    }) {
-                        Image(systemName: "trash")
-                            .foregroundColor(.white)
-                            .padding(10)
-                            .background(Color.red)
-                            .clipShape(Circle())
-                    }
-                }
-                .padding(.top, 50)
-                .padding(.horizontal, 20)
-                
-                Spacer()
-                
-                HStack {
-                    Spacer()
-                    Button(action: {
-                        showPlus.toggle()
-                    }) {
-                        Image(systemName: showPlus ? "plus.circle.fill" : "plus.circle")
-                            .foregroundColor(.white)
-                            .padding(10)
-                            .background(Color.blue)
-                            .clipShape(Circle())
-                    }
-                    
-                    Button(action: {
-                        undoLastLine()
-                    }) {
-                        Image(systemName: "arrow.uturn.backward")
-                            .foregroundColor(.white)
-                            .padding(10)
-                            .background(Color.orange)
-                            .clipShape(Circle())
-                    }
-                    .disabled(lines.count <= sentLinesCount)
-                    
-                    Button(action: {
-                        sendLines()
-                    }) {
-                        Image(systemName: "paperplane.fill")
-                            .foregroundColor(.white)
-                            .padding(10)
-                            .background(Color.green)
-                            .clipShape(Circle())
-                    }
-                    .disabled(lines.count <= sentLinesCount)
-                }
-                .padding(.bottom, 20)
-                .padding(.trailing, 20)
+            .onAppear {
+                screenSize = geometry.size
             }
         }
         .edgesIgnoringSafeArea(.all)
@@ -181,18 +188,17 @@ struct ContentView: View {
     }
     
     private func sendLines() {
-        // 发送新的线段
         let newLinesCount = lines.count - sentLinesCount
         if newLinesCount > 0 {
             print("发送了 \(newLinesCount) 条新线段")
+            var message = "LINES\n"
             for i in sentLinesCount..<lines.count {
                 let line = lines[i]
                 if let startPoint = line.points.first, let endPoint = line.points.last {
-                    print("线段 \(i + 1):")
-                    print("  起点: x: \(startPoint.x), y: \(startPoint.y)")
-                    print("  终点: x: \(endPoint.x), y: \(endPoint.y)")
+                    message += "\(startPoint.x),\(startPoint.y),\(endPoint.x),\(endPoint.y)\n"
                 }
             }
+            sendMessage(message)
             sentLinesCount = lines.count
         }
     }
@@ -200,8 +206,7 @@ struct ContentView: View {
     private func toggleConnection() {
         if isConnected {
             // 断开连接
-            print("断开连接")
-            isConnected = false
+            disconnectFromServer()
         } else {
             // 连接服务器
             connectToServer()
@@ -209,8 +214,25 @@ struct ContentView: View {
     }
     
     private func resetRobot() {
-        // TODO: 实现复位功能
-        print("复位机器")
+        let message = "RESET\n\(screenSize.width),\(screenSize.height)"
+        sendMessage(message)
+        print("Reset robot with screen size: \(screenSize.width) x \(screenSize.height)")
+    }
+    
+    private func sendMessage(_ message: String) {
+        guard let connection = connection else {
+            print("No active connection")
+            return
+        }
+        
+        let data = message.data(using: .utf8)!
+        connection.send(content: data, completion: .contentProcessed { error in
+            if let error = error {
+                print("Failed to send message: \(error)")
+            } else {
+                print("Message sent successfully")
+            }
+        })
     }
     
     private func connectToServer() {
@@ -221,19 +243,31 @@ struct ContentView: View {
             return
         }
         
-        let task = Task {
+        Task {
             do {
-                let (stream, _) = try await TCPClient.connect(host: host, port: port)
+                let (newConnection, _) = try await TCPClient.connect(host: host, port: port)
+                self.connection = newConnection
                 print("Connected to server")
                 DispatchQueue.main.async {
                     self.isConnected = true
                 }
-                // 在这里可以进行进一步的通信
             } catch {
                 print("Connection failed: \(error.localizedDescription)")
                 DispatchQueue.main.async {
                     self.isConnected = false
+                    self.connection = nil
                 }
+            }
+        }
+    }
+    
+    private func disconnectFromServer() {
+        Task {
+            await TCPClient.disconnect(connection: connection)
+            self.connection = nil
+            print("Disconnected from server")
+            DispatchQueue.main.async {
+                self.isConnected = false
             }
         }
     }
@@ -299,25 +333,54 @@ struct ContentView_Previews: PreviewProvider {
     }
 }
 
+actor TCPClientActor {
+    private var hasResumed = false
+    
+    func markAsResumed() {
+        hasResumed = true
+    }
+    
+    func hasAlreadyResumed() -> Bool {
+        return hasResumed
+    }
+}
+
 class TCPClient {
     static func connect(host: String, port: Int) async throws -> (NWConnection, NWEndpoint) {
         let endpoint = NWEndpoint.hostPort(host: NWEndpoint.Host(host), port: NWEndpoint.Port(integerLiteral: UInt16(port)))
         let connection = NWConnection(to: endpoint, using: .tcp)
+        let actor = TCPClientActor()
         
         return try await withCheckedThrowingContinuation { continuation in
             connection.stateUpdateHandler = { state in
-                switch state {
-                case .ready:
-                    continuation.resume(returning: (connection, endpoint))
-                case .failed(let error):
-                    continuation.resume(throwing: error)
-                case .cancelled:
-                    continuation.resume(throwing: NSError(domain: "TCPClient", code: 0, userInfo: [NSLocalizedDescriptionKey: "Connection cancelled"]))
-                default:
-                    break
+                Task {
+                    guard !(await actor.hasAlreadyResumed()) else { return }
+                    
+                    switch state {
+                    case .ready:
+                        await actor.markAsResumed()
+                        continuation.resume(returning: (connection, endpoint))
+                    case .failed(let error):
+                        await actor.markAsResumed()
+                        continuation.resume(throwing: error)
+                    case .cancelled:
+                        await actor.markAsResumed()
+                        continuation.resume(throwing: NSError(domain: "TCPClient", code: 0, userInfo: [NSLocalizedDescriptionKey: "Connection cancelled"]))
+                    default:
+                        break
+                    }
                 }
             }
+            
             connection.start(queue: .global())
+        }
+    }
+    
+    static func disconnect(connection: NWConnection?) async {
+        guard let connection = connection else { return }
+        return await withCheckedContinuation { continuation in
+            connection.cancel()
+            continuation.resume()
         }
     }
 }

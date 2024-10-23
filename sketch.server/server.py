@@ -13,12 +13,26 @@ class SketchServer:
         
         try:
             while True:
-                data = await reader.read(100)
+                data = await reader.read(1024)  # 增加读取的数据量
                 if not data:
+                    print(f"Client {addr} disconnected")
                     break
-                message = data.decode()
-                print(f"Received {message} from {addr}")
-                # 在这里处理接收到的消息
+                message = data.decode().strip()
+                print(f"Received message from {addr}")
+                
+                if message.startswith("LINES"):
+                    lines = message.split('\n')[1:]
+                    print("Received lines:")
+                    for line in lines:
+                        x1, y1, x2, y2 = map(float, line.split(','))
+                        print(f"  Start: ({x1}, {y1}), End: ({x2}, {y2})")
+                elif message.startswith("RESET"):
+                    _, dimensions = message.split('\n')
+                    width, height = map(float, dimensions.split(','))
+                    print(f"Reset request received. Screen size: {width} x {height}")
+                else:
+                    print(f"Unknown message: {message}")
+                
         except asyncio.CancelledError:
             pass
         finally:
