@@ -191,15 +191,26 @@ struct ContentView: View {
         let newLinesCount = lines.count - sentLinesCount
         if newLinesCount > 0 {
             print("发送了 \(newLinesCount) 条新线段")
-            var message = "LINES\n"
-            for i in sentLinesCount..<lines.count {
-                let line = lines[i]
-                if let startPoint = line.points.first, let endPoint = line.points.last {
-                    message += "\(startPoint.x),\(startPoint.y),\(endPoint.x),\(endPoint.y)\n"
+            let newLines = Array(lines[sentLinesCount...])
+            let linesData = newLines.map { line -> [[String: CGFloat]] in
+                line.points.map { point in
+                    ["x": point.x, "y": point.y]
                 }
             }
-            sendMessage(message)
+            let message: [String: Any] = [
+                "type": "LINES",
+                "data": linesData
+            ]
+            sendJSONMessage(message)
             sentLinesCount = lines.count
+            
+            // 打印每条线的所有点坐标
+            for (lineIndex, line) in newLines.enumerated() {
+                print("Line \(lineIndex + 1):")
+                for (pointIndex, point) in line.points.enumerated() {
+                    print("  Point \(pointIndex + 1): (x: \(point.x), y: \(point.y))")
+                }
+            }
         }
     }
     
@@ -214,25 +225,35 @@ struct ContentView: View {
     }
     
     private func resetRobot() {
-        let message = "RESET\n\(screenSize.width),\(screenSize.height)"
-        sendMessage(message)
+        let message: [String: Any] = [
+            "type": "RESET",
+            "data": [
+                "width": screenSize.width,
+                "height": screenSize.height
+            ]
+        ]
+        sendJSONMessage(message)
         print("Reset robot with screen size: \(screenSize.width) x \(screenSize.height)")
     }
     
-    private func sendMessage(_ message: String) {
+    private func sendJSONMessage(_ message: [String: Any]) {
         guard let connection = connection else {
             print("No active connection")
             return
         }
         
-        let data = message.data(using: .utf8)!
-        connection.send(content: data, completion: .contentProcessed { error in
-            if let error = error {
-                print("Failed to send message: \(error)")
-            } else {
-                print("Message sent successfully")
-            }
-        })
+        do {
+            let jsonData = try JSONSerialization.data(withJSONObject: message, options: [])
+            connection.send(content: jsonData, completion: .contentProcessed { error in
+                if let error = error {
+                    print("Failed to send message: \(error)")
+                } else {
+                    print("Message sent successfully")
+                }
+            })
+        } catch {
+            print("Failed to serialize JSON: \(error)")
+        }
     }
     
     private func connectToServer() {
