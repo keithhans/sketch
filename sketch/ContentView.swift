@@ -10,7 +10,7 @@ import SwiftUI
 struct ContentView: View {
     @State private var lines: [Line] = []
     @State private var currentLine: Line?
-    @State private var showPlus = true  // 新增状态变量来控制加号显示
+    @State private var showPlus = true
     
     var body: some View {
         ZStack {
@@ -20,7 +20,6 @@ struct ContentView: View {
                     path.addLines(line.points)
                     context.stroke(path, with: .color(.black), lineWidth: 3)
                     
-                    // 只在 showPlus 为 true 时绘制加号
                     if showPlus {
                         for point in line.points {
                             let color = Color(hue: Double(index) / Double(lines.count), saturation: 1, brightness: 1)
@@ -34,7 +33,6 @@ struct ContentView: View {
                     path.addLines(line.points)
                     context.stroke(path, with: .color(.black), lineWidth: 3)
                     
-                    // 只在 showPlus 为 true 时绘制加号
                     if showPlus {
                         for point in line.points {
                             drawPlus(context: context, at: point, color: .blue)
@@ -52,7 +50,8 @@ struct ContentView: View {
                         }
                     }
                     .onEnded { _ in
-                        if let line = currentLine {
+                        if var line = currentLine {
+                            line.mergeCloseAngles()
                             lines.append(line)
                             currentLine = nil
                         }
@@ -113,6 +112,30 @@ struct ContentView: View {
 
 struct Line {
     var points: [CGPoint]
+    
+    mutating func mergeCloseAngles() {
+        guard points.count > 2 else { return }
+        
+        var newPoints = [points[0]]
+        var lastAngle = angle(between: points[0], points[1])
+        
+        for i in 1..<points.count - 1 {
+            let currentAngle = angle(between: points[i], points[i+1])
+            let angleDifference = abs(currentAngle - lastAngle)
+            
+            if angleDifference > 10 * .pi / 180 {
+                newPoints.append(points[i])
+                lastAngle = currentAngle
+            }
+        }
+        
+        newPoints.append(points.last!)
+        points = newPoints
+    }
+    
+    private func angle(between point1: CGPoint, _ point2: CGPoint) -> CGFloat {
+        return atan2(point2.y - point1.y, point2.x - point1.x)
+    }
 }
 
 struct ContentView_Previews: PreviewProvider {
