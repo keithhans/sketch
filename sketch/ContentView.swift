@@ -6,6 +6,8 @@
 //
 
 import SwiftUI
+import Foundation
+import Network
 
 struct ContentView: View {
     @State private var lines: [Line] = []
@@ -202,15 +204,38 @@ struct ContentView: View {
             isConnected = false
         } else {
             // 连接服务器
-            print("连接到服务器: \(serverAddress)")
-            // 这里应该实现实际的连接逻辑
-            isConnected = true // 假设连接成功
+            connectToServer()
         }
     }
     
     private func resetRobot() {
         // TODO: 实现复位功能
-        print("复位机器人")
+        print("复位机器")
+    }
+    
+    private func connectToServer() {
+        guard let host = serverAddress.components(separatedBy: ":").first,
+              let portString = serverAddress.components(separatedBy: ":").last,
+              let port = Int(portString) else {
+            print("Invalid server address")
+            return
+        }
+        
+        let task = Task {
+            do {
+                let (stream, _) = try await TCPClient.connect(host: host, port: port)
+                print("Connected to server")
+                DispatchQueue.main.async {
+                    self.isConnected = true
+                }
+                // 在这里可以进行进一步的通信
+            } catch {
+                print("Connection failed: \(error.localizedDescription)")
+                DispatchQueue.main.async {
+                    self.isConnected = false
+                }
+            }
+        }
     }
 }
 
@@ -271,5 +296,28 @@ struct ConfigView: View {
 struct ContentView_Previews: PreviewProvider {
     static var previews: some View {
         ContentView()
+    }
+}
+
+class TCPClient {
+    static func connect(host: String, port: Int) async throws -> (NWConnection, NWEndpoint) {
+        let endpoint = NWEndpoint.hostPort(host: NWEndpoint.Host(host), port: NWEndpoint.Port(integerLiteral: UInt16(port)))
+        let connection = NWConnection(to: endpoint, using: .tcp)
+        
+        return try await withCheckedThrowingContinuation { continuation in
+            connection.stateUpdateHandler = { state in
+                switch state {
+                case .ready:
+                    continuation.resume(returning: (connection, endpoint))
+                case .failed(let error):
+                    continuation.resume(throwing: error)
+                case .cancelled:
+                    continuation.resume(throwing: NSError(domain: "TCPClient", code: 0, userInfo: [NSLocalizedDescriptionKey: "Connection cancelled"]))
+                default:
+                    break
+                }
+            }
+            connection.start(queue: .global())
+        }
     }
 }

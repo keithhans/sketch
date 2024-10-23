@@ -14,6 +14,7 @@
 		263EC0F22CC88B5200B59219 /* sketchTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 263EC0F12CC88B5200B59219 /* sketchTests.swift */; };
 		263EC0FC2CC88B5200B59219 /* sketchUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 263EC0FB2CC88B5200B59219 /* sketchUITests.swift */; };
 		263EC0FE2CC88B5200B59219 /* sketchUITestsLaunchTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 263EC0FD2CC88B5200B59219 /* sketchUITestsLaunchTests.swift */; };
+		26685C882CC901D700278207 /* Info.plist in Resources */ = {isa = PBXBuildFile; fileRef = 26685C872CC901D700278207 /* Info.plist */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -45,6 +46,7 @@
 		263EC0F72CC88B5200B59219 /* sketchUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = sketchUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		263EC0FB2CC88B5200B59219 /* sketchUITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = sketchUITests.swift; sourceTree = "<group>"; };
 		263EC0FD2CC88B5200B59219 /* sketchUITestsLaunchTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = sketchUITestsLaunchTests.swift; sourceTree = "<group>"; };
+		26685C872CC901D700278207 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -97,6 +99,7 @@
 			children = (
 				263EC0DF2CC88B4900B59219 /* sketchApp.swift */,
 				263EC0E12CC88B4900B59219 /* ContentView.swift */,
+				26685C872CC901D700278207 /* Info.plist */,
 				263EC0E32CC88B5100B59219 /* Assets.xcassets */,
 				263EC0E52CC88B5100B59219 /* sketch.entitlements */,
 				263EC0E62CC88B5100B59219 /* Preview Content */,
@@ -235,6 +238,7 @@
 			files = (
 				263EC0E82CC88B5100B59219 /* Preview Assets.xcassets in Resources */,
 				263EC0E42CC88B5100B59219 /* Assets.xcassets in Resources */,
+				26685C882CC901D700278207 /* Info.plist in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
