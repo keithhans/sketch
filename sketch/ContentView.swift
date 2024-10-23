@@ -82,6 +82,16 @@ struct ContentView: View {
                 HStack {
                     Spacer()
                     Button(action: {
+                        showPlus.toggle()
+                    }) {
+                        Image(systemName: showPlus ? "plus.circle.fill" : "plus.circle")
+                            .foregroundColor(.white)
+                            .padding(10)
+                            .background(Color.blue)
+                            .clipShape(Circle())
+                    }
+                    
+                    Button(action: {
                         undoLastLine()
                     }) {
                         Image(systemName: "arrow.uturn.backward")
@@ -93,12 +103,12 @@ struct ContentView: View {
                     .disabled(lines.isEmpty && lastRemovedLine == nil)
                     
                     Button(action: {
-                        showPlus.toggle()
+                        sendLines()
                     }) {
-                        Image(systemName: showPlus ? "plus.circle.fill" : "plus.circle")
+                        Image(systemName: "paperplane.fill")
                             .foregroundColor(.white)
                             .padding(10)
-                            .background(Color.blue)
+                            .background(Color.green)
                             .clipShape(Circle())
                     }
                 }
@@ -129,6 +139,11 @@ struct ContentView: View {
                 lastRemovedLine = lastLine
             }
         } 
+    }
+    
+    private func sendLines() {
+        // 发送按钮的逻辑暂时为空
+        print("发送按钮被点击")
     }
 }
 
