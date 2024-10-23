@@ -15,7 +15,7 @@ struct ContentView: View {
     @State private var showPlus = true
     @State private var sentLinesCount = 0
     @State private var showConfigSheet = false
-    @State private var serverAddress = "192.168.31.158:6666"
+    @AppStorage("serverAddress") private var serverAddress = "192.168.31.158:6666"
     @State private var isConnected = false
     @State private var connection: NWConnection?
     @State private var screenSize: CGSize = .zero
