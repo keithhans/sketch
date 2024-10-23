@@ -11,7 +11,7 @@ struct ContentView: View {
     @State private var lines: [Line] = []
     @State private var currentLine: Line?
     @State private var showPlus = true
-    @State private var lastRemovedLine: Line?  // 存储最后一次撤回的线
+    @State private var sentLinesCount = 0  // 新增：已发送线段的数量
     
     var body: some View {
         ZStack {
@@ -19,7 +19,7 @@ struct ContentView: View {
                 for (index, line) in lines.enumerated() {
                     var path = Path()
                     path.addLines(line.points)
-                    context.stroke(path, with: .color(.black), lineWidth: 3)
+                    context.stroke(path, with: .color(index < sentLinesCount ? .gray : .black), lineWidth: 3)
                     
                     if showPlus {
                         for point in line.points {
@@ -55,7 +55,6 @@ struct ContentView: View {
                             line.mergeCloseAngles()
                             lines.append(line)
                             currentLine = nil
-                            lastRemovedLine = nil  // 重置最后撤回的线
                         }
                     }
             )
@@ -67,7 +66,7 @@ struct ContentView: View {
                     Button(action: {
                         lines.removeAll()
                         currentLine = nil
-                        lastRemovedLine = nil
+                        sentLinesCount = 0  // 重置已发送线段数量
                     }) {
                         Image(systemName: "trash")
                             .foregroundColor(.white)
@@ -100,7 +99,7 @@ struct ContentView: View {
                             .background(Color.orange)
                             .clipShape(Circle())
                     }
-                    .disabled(lines.isEmpty && lastRemovedLine == nil)
+                    .disabled(lines.count <= sentLinesCount)
                     
                     Button(action: {
                         sendLines()
@@ -111,6 +110,7 @@ struct ContentView: View {
                             .background(Color.green)
                             .clipShape(Circle())
                     }
+                    .disabled(lines.count <= sentLinesCount)
                 }
                 .padding(.bottom, 20)
                 .padding(.trailing, 20)
@@ -134,16 +134,26 @@ struct ContentView: View {
     }
     
     private func undoLastLine() {
-        if lastRemovedLine == nil {
-            if let lastLine = lines.popLast() {
-                lastRemovedLine = lastLine
-            }
-        } 
+        if lines.count > sentLinesCount {
+            _ = lines.popLast()
+        }
     }
     
     private func sendLines() {
-        // 发送按钮的逻辑暂时为空
-        print("发送按钮被点击")
+        // 发送新的线段
+        let newLinesCount = lines.count - sentLinesCount
+        if newLinesCount > 0 {
+            print("发送了 \(newLinesCount) 条新线段")
+            for i in sentLinesCount..<lines.count {
+                let line = lines[i]
+                if let startPoint = line.points.first, let endPoint = line.points.last {
+                    print("线段 \(i + 1):")
+                    print("  起点: x: \(startPoint.x), y: \(startPoint.y)")
+                    print("  终点: x: \(endPoint.x), y: \(endPoint.y)")
+                }
+            }
+            sentLinesCount = lines.count
+        }
     }
 }
 
