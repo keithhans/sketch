@@ -11,6 +11,7 @@ struct ContentView: View {
     @State private var lines: [Line] = []
     @State private var currentLine: Line?
     @State private var showPlus = true
+    @State private var lastRemovedLine: Line?  // 存储最后一次撤回的线
     
     var body: some View {
         ZStack {
@@ -54,6 +55,7 @@ struct ContentView: View {
                             line.mergeCloseAngles()
                             lines.append(line)
                             currentLine = nil
+                            lastRemovedLine = nil  // 重置最后撤回的线
                         }
                     }
             )
@@ -65,6 +67,7 @@ struct ContentView: View {
                     Button(action: {
                         lines.removeAll()
                         currentLine = nil
+                        lastRemovedLine = nil
                     }) {
                         Image(systemName: "trash")
                             .foregroundColor(.white)
@@ -79,6 +82,17 @@ struct ContentView: View {
                 HStack {
                     Spacer()
                     Button(action: {
+                        undoLastLine()
+                    }) {
+                        Image(systemName: "arrow.uturn.backward")
+                            .foregroundColor(.white)
+                            .padding(10)
+                            .background(Color.orange)
+                            .clipShape(Circle())
+                    }
+                    .disabled(lines.isEmpty && lastRemovedLine == nil)
+                    
+                    Button(action: {
                         showPlus.toggle()
                     }) {
                         Image(systemName: showPlus ? "plus.circle.fill" : "plus.circle")
@@ -87,9 +101,9 @@ struct ContentView: View {
                             .background(Color.blue)
                             .clipShape(Circle())
                     }
-                    .padding(.bottom, 20)
-                    .padding(.trailing, 20)
                 }
+                .padding(.bottom, 20)
+                .padding(.trailing, 20)
             }
         }
         .edgesIgnoringSafeArea(.all)
@@ -107,6 +121,14 @@ struct ContentView: View {
             with: .color(color),
             lineWidth: 2
         )
+    }
+    
+    private func undoLastLine() {
+        if lastRemovedLine == nil {
+            if let lastLine = lines.popLast() {
+                lastRemovedLine = lastLine
+            }
+        } 
     }
 }
 
