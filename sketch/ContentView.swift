@@ -85,6 +85,16 @@ struct ContentView: View {
                             .clipShape(Circle())
                     }
                     
+                    Button(action: {
+                        resetRobot()
+                    }) {
+                        Image(systemName: "arrow.counterclockwise")
+                            .foregroundColor(.white)
+                            .padding(10)
+                            .background(Color.blue)
+                            .clipShape(Circle())
+                    }
+                    
                     Spacer()
                     
                     Button(action: {
@@ -196,6 +206,11 @@ struct ContentView: View {
             // 这里应该实现实际的连接逻辑
             isConnected = true // 假设连接成功
         }
+    }
+    
+    private func resetRobot() {
+        // TODO: 实现复位功能
+        print("复位机器人")
     }
 }
 
