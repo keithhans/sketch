@@ -5,11 +5,11 @@ from pymycobot import MyCobot
 
 # 机械臂的工作范围
 ARM_X_MIN = 140
-ARM_X_MAX = 280
+ARM_X_MAX = 270
 ARM_Y_MIN = -100
 ARM_Y_MAX = 100
 ARM_Z_DOWN = 55  # 假设Z轴高度固定
-ARM_Z_UP = 70  # 假设Z轴高度固定
+ARM_Z_UP = 80  # 假设Z轴高度固定
 
 
 class SketchServer:
@@ -19,8 +19,9 @@ class SketchServer:
         self.clients = set()
         self.mc = MyCobot("/dev/ttyAMA0", 1000000)
         self.mc.set_fresh_mode(0)
+        print(f"fresh mode:{self.mc.get_fresh_mode()}")
         self.width = 800
-        self.heigth = 600
+        self.height = 600
 
     def convert(self, x, y, w, h):
         # 计算原始图片的纵横比
@@ -48,7 +49,7 @@ class SketchServer:
         x = x * scale + offset_x
         y = y * scale + offset_y
         print(f"after convert:{x}, {y}")
-        return x, y
+        return x, -y
 
     async def handle_client(self, reader, writer):
         addr = writer.get_extra_info('peername')
@@ -76,9 +77,10 @@ class SketchServer:
                             for point_index, point in enumerate(line):
                                 print(f"    Point {point_index + 1}: ({point['x']}, {point['y']})")
                                 x, y = self.convert(point['x'], point['y'], self.width, self.height)
-                                self.mc.send_coords([x, y, ARM_Z_DOWN, 179, 0, -90], 100, 1)
-                                time.sleep(1)
-                            self.mc.send_coord(3, ARM_Z_UP, 60)
+                                self.mc.send_coords([x, y, ARM_Z_DOWN, 179, 0, -90], 60, 0)
+                                #time.sleep(1)
+                            time.sleep(0.8)
+                            self.mc.send_coord(3, ARM_Z_UP, 100)
                             time.sleep(1)
 
                     elif message['type'] == "RESET":
