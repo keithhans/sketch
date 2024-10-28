@@ -58,9 +58,11 @@ class SketchServer:
         
         try:
             while True:
-                data = await reader.read(4096)  # 增加读取的数据量
+                data = await reader.read(40960)  # 增加读取的数据量
                 if not data:
                     print(f"Client {addr} disconnected")
+                    self.mc.send_angles([0, 0, -90, 0, 0, 0], 50)
+                    time.sleep(2)
                     break
                 try:
                     message = json.loads(data.decode())
@@ -78,7 +80,7 @@ class SketchServer:
                                 print(f"    Point {point_index + 1}: ({point['x']}, {point['y']})")
                                 x, y = self.convert(point['x'], point['y'], self.width, self.height)
                                 self.mc.send_coords([x, y, ARM_Z_DOWN, 179, 0, -90], 60, 0)
-                                #time.sleep(1)
+                                time.sleep(0.1)
                             time.sleep(0.8)
                             self.mc.send_coord(3, ARM_Z_UP, 100)
                             time.sleep(1)
