@@ -2,6 +2,9 @@ import asyncio
 import json
 import time
 from pymycobot import MyCobot
+import argparse
+import numpy as np
+from scipy.interpolate import griddata
 
 # 机械臂的工作范围
 ARM_X_MIN = 140
@@ -13,7 +16,7 @@ ARM_Z_UP = 80  # 假设Z轴高度固定
 
 
 class SketchServer:
-    def __init__(self, host, port):
+    def __init__(self, host, port, scan_file, enable_compensation=True):
         self.host = host
         self.port = port
         self.clients = set()
@@ -22,6 +25,67 @@ class SketchServer:
         print(f"fresh mode:{self.mc.get_fresh_mode()}")
         self.width = 800
         self.height = 600
+        
+        # 是否启用误差补偿
+        self.enable_compensation = enable_compensation
+        if self.enable_compensation:
+            print("Error compensation enabled")
+            self.load_compensation_data(scan_file)
+        else:
+            print("Error compensation disabled")
+    
+    def load_compensation_data(self, scan_file):
+        """加载误差补偿数据"""
+        data = np.load(scan_file)
+        self.target_points = data['target_points']
+        self.actual_points = data['actual_points']
+        self.errors = self.actual_points[:, :3] - self.target_points[:, :3]
+        print("Loaded compensation data")
+    
+    def predict_error_at_point(self, point, method='linear'):
+        """预测特定点的误差"""
+        predicted_error = []
+        for i in range(3):  # x, y, z 三个方向
+            error_i = griddata((self.target_points[:, 0], self.target_points[:, 1]),
+                             self.errors[:, i],
+                             (point[0], point[1]),
+                             method=method)
+            if np.isnan(error_i):
+                distances = np.linalg.norm(self.target_points[:, :2] - np.array([point[0], point[1]]), axis=1)
+                nearest_idx = np.argmin(distances)
+                error_i = self.errors[nearest_idx, i]
+            predicted_error.append(float(error_i))
+        return np.array(predicted_error)
+    
+    def send_coords_with_compensation(self, coords, speed, mode):
+        """发送经过误差补偿的坐标"""
+        if not self.enable_compensation:
+            # 如果未启用补偿，直接发送原始坐标
+            self.mc.send_coords(coords, speed, mode)
+            return
+            
+        original_point = np.array(coords[:3])
+        predicted_error = self.predict_error_at_point(original_point)
+        
+        # 计算补偿后的位置
+        compensated_position = original_point - predicted_error
+        
+        # 构建完整的补偿后坐标
+        compensated_coords = [
+            compensated_position[0],  # x
+            compensated_position[1],  # y
+            compensated_position[2],  # z
+            coords[3],  # rx
+            coords[4],  # ry
+            coords[5]   # rz
+        ]
+        
+        print(f"Original coords: {coords}")
+        print(f"Predicted error: {predicted_error}")
+        print(f"Compensated coords: {compensated_coords}")
+        
+        # 发送补偿后的坐标
+        self.mc.send_coords(compensated_coords, speed, mode)
 
     def convert(self, x, y, w, h):
         # 计算原始图片的纵横比
@@ -58,7 +122,7 @@ class SketchServer:
         
         try:
             while True:
-                data = await reader.read(40960)  # 增加读取的数据量
+                data = await reader.read(40960)
                 if not data:
                     print(f"Client {addr} disconnected")
                     self.mc.send_angles([0, 0, -90, 0, 0, 0], 50)
@@ -74,12 +138,12 @@ class SketchServer:
                         for line_index, line in enumerate(lines):
                             print(f"  Line {line_index + 1}:")
                             x, y = self.convert(line[0]['x'], line[0]['y'], self.width, self.height)
-                            self.mc.send_coords([x, y, ARM_Z_UP, -175, 0, -90], 100, 1)
+                            self.send_coords_with_compensation([x, y, ARM_Z_UP, -175, 0, -90], 100, 1)
                             time.sleep(2)
                             for point_index, point in enumerate(line):
                                 print(f"    Point {point_index + 1}: ({point['x']}, {point['y']})")
                                 x, y = self.convert(point['x'], point['y'], self.width, self.height)
-                                self.mc.send_coords([x, y, ARM_Z_DOWN, -175, 0, -90], 60, 0)
+                                self.send_coords_with_compensation([x, y, ARM_Z_DOWN, -175, 0, -90], 60, 0)
                                 time.sleep(0.1)
                             time.sleep(0.8)
                             self.mc.send_coord(3, ARM_Z_UP, 100)
@@ -88,8 +152,8 @@ class SketchServer:
                     elif message['type'] == "RESET":
                         dimensions = message['data']
                         self.width, self.height = dimensions['width'], dimensions['height']
-                        print(f"Reset request received. Screen size: {self.width} x {self.height}")                        
-                        self.mc.send_coords([230, -50, ARM_Z_UP, -175, 0, -90], 50, 1)
+                        print(f"Reset request received. Screen size: {self.width} x {self.height}")
+                        self.send_coords_with_compensation([230, -50, ARM_Z_UP, -175, 0, -90], 50, 1)
                         time.sleep(2)
                     else:
                         print(f"Unknown message type: {message['type']}")
@@ -115,8 +179,14 @@ class SketchServer:
             await server.serve_forever()
 
 if __name__ == "__main__":
-    host = '0.0.0.0'  # 监听所有可用的网络接口
-    port = 6666
+    parser = argparse.ArgumentParser(description='Start sketch server with error compensation')
+    parser.add_argument('scan_file', help='Path to the scan results NPZ file')
+    parser.add_argument('--host', default='0.0.0.0', help='Host address')
+    parser.add_argument('--port', type=int, default=6666, help='Port number')
+    parser.add_argument('--no-compensation', action='store_true', 
+                       help='Disable error compensation')
+    args = parser.parse_args()
     
-    sketch_server = SketchServer(host, port)
+    sketch_server = SketchServer(args.host, args.port, args.scan_file, 
+                               enable_compensation=not args.no_compensation)
     asyncio.run(sketch_server.start_server())
