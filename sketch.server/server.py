@@ -8,7 +8,7 @@ ARM_X_MIN = 140
 ARM_X_MAX = 270
 ARM_Y_MIN = -100
 ARM_Y_MAX = 100
-ARM_Z_DOWN = 55  # 假设Z轴高度固定
+ARM_Z_DOWN = 72  # 假设Z轴高度固定
 ARM_Z_UP = 80  # 假设Z轴高度固定
 
 
@@ -74,12 +74,12 @@ class SketchServer:
                         for line_index, line in enumerate(lines):
                             print(f"  Line {line_index + 1}:")
                             x, y = self.convert(line[0]['x'], line[0]['y'], self.width, self.height)
-                            self.mc.send_coords([x, y, ARM_Z_UP, 179, 0, -90], 100, 1)
+                            self.mc.send_coords([x, y, ARM_Z_UP, -175, 0, -90], 100, 1)
                             time.sleep(2)
                             for point_index, point in enumerate(line):
                                 print(f"    Point {point_index + 1}: ({point['x']}, {point['y']})")
                                 x, y = self.convert(point['x'], point['y'], self.width, self.height)
-                                self.mc.send_coords([x, y, ARM_Z_DOWN, 179, 0, -90], 60, 0)
+                                self.mc.send_coords([x, y, ARM_Z_DOWN, -175, 0, -90], 60, 0)
                                 time.sleep(0.1)
                             time.sleep(0.8)
                             self.mc.send_coord(3, ARM_Z_UP, 100)
@@ -89,7 +89,7 @@ class SketchServer:
                         dimensions = message['data']
                         self.width, self.height = dimensions['width'], dimensions['height']
                         print(f"Reset request received. Screen size: {self.width} x {self.height}")                        
-                        self.mc.send_coords([230, -50, ARM_Z_UP, 179, 0, -90], 50, 1)
+                        self.mc.send_coords([230, -50, ARM_Z_UP, -175, 0, -90], 50, 1)
                         time.sleep(2)
                     else:
                         print(f"Unknown message type: {message['type']}")
