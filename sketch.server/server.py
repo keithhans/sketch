@@ -7,11 +7,11 @@ import numpy as np
 from scipy.interpolate import griddata
 
 # 机械臂的工作范围
-ARM_X_MIN = 140
+ARM_X_MIN = 150
 ARM_X_MAX = 270
 ARM_Y_MIN = -100
 ARM_Y_MAX = 100
-ARM_Z_DOWN = 72  # 假设Z轴高度固定
+ARM_Z_DOWN = 55  # 假设Z轴高度固定
 ARM_Z_UP = 80  # 假设Z轴高度固定
 
 
@@ -146,14 +146,15 @@ class SketchServer:
                                 self.send_coords_with_compensation([x, y, ARM_Z_DOWN, -175, 0, -90], 60, 0)
                                 time.sleep(0.1)
                             time.sleep(0.8)
-                            self.mc.send_coord(3, ARM_Z_UP, 100)
+                            #self.mc.send_coord(3, ARM_Z_UP, 100)
+                            self.send_coords_with_compensation([x, y, ARM_Z_UP, -175, 0, -90], 60, 0)
                             time.sleep(1)
 
                     elif message['type'] == "RESET":
                         dimensions = message['data']
                         self.width, self.height = dimensions['width'], dimensions['height']
                         print(f"Reset request received. Screen size: {self.width} x {self.height}")
-                        self.send_coords_with_compensation([230, -50, ARM_Z_UP, -175, 0, -90], 50, 1)
+                        self.send_coords_with_compensation([210, 0, ARM_Z_UP, -175, 0, -90], 50, 1)
                         time.sleep(2)
                     else:
                         print(f"Unknown message type: {message['type']}")
