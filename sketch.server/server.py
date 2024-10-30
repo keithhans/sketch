@@ -11,7 +11,7 @@ ARM_X_MIN = 150
 ARM_X_MAX = 270
 ARM_Y_MIN = -100
 ARM_Y_MAX = 100
-ARM_Z_DOWN = 55  # 假设Z轴高度固定
+ARM_Z_DOWN = 56  # 假设Z轴高度固定
 ARM_Z_UP = 80  # 假设Z轴高度固定
 
 
