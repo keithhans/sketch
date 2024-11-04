@@ -11,8 +11,8 @@ ARM_X_MIN = 150
 ARM_X_MAX = 270
 ARM_Y_MIN = -100
 ARM_Y_MAX = 100
-ARM_Z_DOWN = 56  # 假设Z轴高度固定
-ARM_Z_UP = 80  # 假设Z轴高度固定
+ARM_Z_DOWN = 70  # 假设Z轴高度固定
+ARM_Z_UP = 90  # 假设Z轴高度固定
 
 
 class SketchServer:
@@ -104,7 +104,7 @@ class SketchServer:
             # 高图，以高度为基准进行缩放
             scale = arm_height / h
         
-        print(f"scale:{scale}")
+        #print(f"scale:{scale}")
 
         # 计算偏移量，使图像居中
         offset_x = ARM_X_MIN + (arm_width - w * scale) / 2
@@ -112,7 +112,7 @@ class SketchServer:
 
         x = x * scale + offset_x
         y = y * scale + offset_y
-        print(f"after convert:{x}, {y}")
+        #print(f"after convert:{x}, {y}")
         return x, -y
 
     async def handle_client(self, reader, writer):
@@ -145,9 +145,9 @@ class SketchServer:
                                 x, y = self.convert(point['x'], point['y'], self.width, self.height)
                                 self.send_coords_with_compensation([x, y, ARM_Z_DOWN, -175, 0, -90], 60, 0)
                                 time.sleep(0.1)
-                            time.sleep(0.8)
+                            time.sleep(1)
                             #self.mc.send_coord(3, ARM_Z_UP, 100)
-                            self.send_coords_with_compensation([x, y, ARM_Z_UP, -175, 0, -90], 60, 0)
+                            self.send_coords_with_compensation([x, y, ARM_Z_UP, -175, 0, -90], 60, 1)
                             time.sleep(1)
 
                     elif message['type'] == "RESET":
