@@ -11,8 +11,8 @@ ARM_X_MIN = 150
 ARM_X_MAX = 270
 ARM_Y_MIN = -100
 ARM_Y_MAX = 100
-ARM_Z_DOWN = 70  # 假设Z轴高度固定
-ARM_Z_UP = 90  # 假设Z轴高度固定
+ARM_Z_DOWN = 90 #70 # 假设Z轴高度固定
+ARM_Z_UP = 100  # 假设Z轴高度固定
 
 
 class SketchServer:
@@ -138,22 +138,25 @@ class SketchServer:
                         for line_index, line in enumerate(lines):
                             print(f"  Line {line_index + 1}:")
                             x, y = self.convert(line[0]['x'], line[0]['y'], self.width, self.height)
-                            t = line[0]['timestamp']
                             self.send_coords_with_compensation([x, y, ARM_Z_UP, -175, 0, -90], 100, 1)
                             time.sleep(2)
                             last = time.time()
                             for point_index, point in enumerate(line):
                                 x, y = self.convert(point['x'], point['y'], self.width, self.height)
-                                self.send_coords_with_compensation([x, y, ARM_Z_DOWN, -175, 0, -90], 60, 0)
+                                self.send_coords_with_compensation([x, y, ARM_Z_DOWN, -175, 0, -90], 100, 1)
+
+                                time.sleep(0.2)
+                                print(self.mc.get_coords())
                                 now = time.time()
-                                print(f"    Point {point_index + 1}: ({point['x']}, {point['y']}, {point['timestamp']}, {now-last}, {point['timestamp'] - t})")
-                                if now - last < point['timestamp'] - t:
-                                    time.sleep(point['timestamp'] - t - now + last)
-                                last = now
-                                t = point['timestamp']
+                                
+                                print(f"    Point {point_index + 1}: ({x}, {y}), {now-last}")
+
+                                interval = 0.30
+                                if now - last < interval:
+                                    time.sleep(interval- now + last)
+                                last = time.time()
                             # pen up
                             time.sleep(1)
-                            #self.mc.send_coord(3, ARM_Z_UP, 100)
                             self.send_coords_with_compensation([x, y, ARM_Z_UP, -175, 0, -90], 60, 1)
                             time.sleep(1)
 
