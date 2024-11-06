@@ -5,6 +5,13 @@ from pymycobot import MyCobot
 import argparse
 import numpy as np
 from scipy.interpolate import griddata
+import matplotlib.pyplot as plt
+import csv
+from datetime import datetime
+
+# 添加新的导入
+import os
+from pathlib import Path
 
 # 机械臂的工作范围
 ARM_X_MIN = 150
@@ -33,6 +40,16 @@ class SketchServer:
             self.load_compensation_data(scan_file)
         else:
             print("Error compensation disabled")
+        
+        # 添加位置记录列表
+        self.position_records = []
+        
+        # 创建保存数据的目录
+        self.data_dir = Path("position_records")
+        self.data_dir.mkdir(exist_ok=True)
+        
+        # 创建新的会话文件名
+        self.session_time = datetime.now().strftime("%Y%m%d_%H%M%S")
     
     def load_compensation_data(self, scan_file):
         """加载误差补偿数据"""
@@ -115,6 +132,67 @@ class SketchServer:
         #print(f"after convert:{x}, {y}")
         return x, -y
 
+    def save_and_plot_positions(self):
+        """保存位置数据并生成对比图"""
+        if not self.position_records:
+            return
+            
+        # 准备数据
+        target_positions = np.array([[r['target_x'], r['target_y']] for r in self.position_records])
+        actual_positions = np.array([[r['actual_x'], r['actual_y']] for r in self.position_records])
+        
+        # 保存CSV文件
+        csv_path = self.data_dir / f"positions_{self.session_time}.csv"
+        with open(csv_path, 'w', newline='') as f:
+            writer = csv.writer(f)
+            writer.writerow(['target_x', 'target_y', 'actual_x', 'actual_y', 'error_x', 'error_y', 'error_distance'])
+            for record in self.position_records:
+                writer.writerow([
+                    record['target_x'],
+                    record['target_y'],
+                    record['actual_x'],
+                    record['actual_y'],
+                    record['actual_x'] - record['target_x'],
+                    record['actual_y'] - record['target_y'],
+                    record['error_distance']
+                ])
+        
+        # 创建图形
+        plt.figure(figsize=(12, 8))
+        
+        # 绘制目标位置
+        plt.scatter(target_positions[:, 0], target_positions[:, 1], 
+                   c='blue', label='Target Positions', alpha=0.5)
+        
+        # 绘制实际位置
+        plt.scatter(actual_positions[:, 0], actual_positions[:, 1], 
+                   c='red', label='Actual Positions', alpha=0.5)
+        
+        # 绘制连接线
+        for target, actual in zip(target_positions, actual_positions):
+            plt.plot([target[0], actual[0]], [target[1], actual[1]], 
+                    'g-', alpha=0.3)
+        
+        # 设置图形属性
+        plt.title('Target vs Actual Positions')
+        plt.xlabel('X Position')
+        plt.ylabel('Y Position')
+        plt.legend()
+        plt.grid(True)
+        
+        # 保存图形
+        plt.savefig(self.data_dir / f"positions_plot_{self.session_time}.png")
+        plt.close()
+        
+        # 计算并打印误差统计
+        errors = actual_positions - target_positions
+        error_distances = np.sqrt(np.sum(errors**2, axis=1))
+        print("\nPosition Error Statistics:")
+        print(f"Mean Error Distance: {np.mean(error_distances):.2f}")
+        print(f"Max Error Distance: {np.max(error_distances):.2f}")
+        print(f"Min Error Distance: {np.min(error_distances):.2f}")
+        print(f"Data saved to {csv_path}")
+
     async def handle_client(self, reader, writer):
         addr = writer.get_extra_info('peername')
         print(f"New connection from {addr}")
@@ -144,28 +222,52 @@ class SketchServer:
                             for point_index, point in enumerate(line):
                                 x, y = self.convert(point['x'], point['y'], self.width, self.height)
                                 self.send_coords_with_compensation([x, y, ARM_Z_DOWN, -175, 0, -90], 100, 1)
-
                                 time.sleep(0.2)
-                                print(self.mc.get_coords())
+                                
+                                # 获取实际位置并记录
+                                actual_coords = self.mc.get_coords()
+                                if actual_coords and len(actual_coords) >= 2:
+                                    actual_x, actual_y = actual_coords[0], actual_coords[1]
+                                    error_distance = np.sqrt((actual_x - x)**2 + (actual_y - y)**2)
+                                    
+                                    self.position_records.append({
+                                        'target_x': x,
+                                        'target_y': y,
+                                        'actual_x': actual_x,
+                                        'actual_y': actual_y,
+                                        'error_distance': error_distance
+                                    })
+                                    
+                                    print(f"    Point {point_index + 1}:")
+                                    print(f"      Target: ({x:.2f}, {y:.2f})")
+                                    print(f"      Actual: ({actual_x:.2f}, {actual_y:.2f})")
+                                    print(f"      Error: {error_distance:.2f}")
+                                
                                 now = time.time()
                                 
-                                print(f"    Point {point_index + 1}: ({x}, {y}), {now-last}")
+                                print(f"    Point {point_index + 1}: ({x}, {y}), {now-last:.3f}")
 
                                 interval = 0.30
                                 if now - last < interval:
-                                    time.sleep(interval- now + last)
+                                    time.sleep(interval - (now - last))
                                 last = time.time()
+                            
                             # pen up
                             time.sleep(1)
                             self.send_coords_with_compensation([x, y, ARM_Z_UP, -175, 0, -90], 60, 1)
                             time.sleep(1)
-
+                        
+                        # 在完成所有线条后保存和绘制位置数据
+                        self.save_and_plot_positions()
+                        
                     elif message['type'] == "RESET":
                         dimensions = message['data']
                         self.width, self.height = dimensions['width'], dimensions['height']
                         print(f"Reset request received. Screen size: {self.width} x {self.height}")
                         self.send_coords_with_compensation([210, 0, ARM_Z_UP, -175, 0, -90], 50, 1)
                         time.sleep(2)
+                        # 在新会话开始时清空位置记录
+                        self.position_records = []
                     else:
                         print(f"Unknown message type: {message['type']}")
                 except json.JSONDecodeError:
