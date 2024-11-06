@@ -53,18 +53,20 @@ struct ContentView: View {
                     DragGesture(minimumDistance: 0, coordinateSpace: .local)
                         .onChanged { value in
                             if currentLine == nil {
+                                let timestamp = round(Date().timeIntervalSince1970 * 1000) / 1000
                                 currentLine = Line(
                                     points: [value.location],
-                                    timestamps: [Date().timeIntervalSince1970]
+                                    timestamps: [timestamp]
                                 )
                             } else {
                                 currentLine?.points.append(value.location)
-                                currentLine?.timestamps.append(Date().timeIntervalSince1970)
+                                let timestamp = round(Date().timeIntervalSince1970 * 1000) / 1000
+                                currentLine?.timestamps.append(timestamp)
                             }
                         }
                         .onEnded { _ in
                             if var line = currentLine {
-                                //line.mergeCloseAngles()
+                                line.mergeCloseAngles()
                                 lines.append(line)
                                 currentLine = nil
                             }
@@ -314,19 +316,23 @@ struct Line {
         
         var newPoints = [points[0]]
         var lastAngle = angle(between: points[0], points[1])
-        
+        var newTimestamps = [timestamps[0]]
+
         for i in 1..<points.count - 1 {
             let currentAngle = angle(between: points[i], points[i+1])
             let angleDifference = abs(currentAngle - lastAngle)
-            
-            if angleDifference > 10 * .pi / 180 {
+
+            if angleDifference > 10 * .pi / 180 || timestamps[i+1] - newTimestamps.last! > 0.03 {
                 newPoints.append(points[i])
+                newTimestamps.append(timestamps[i])
                 lastAngle = currentAngle
             }
         }
         
         newPoints.append(points.last!)
+        newTimestamps.append(timestamps.last!)
         points = newPoints
+        timestamps = newTimestamps
     }
     
     private func angle(between point1: CGPoint, _ point2: CGPoint) -> CGFloat {

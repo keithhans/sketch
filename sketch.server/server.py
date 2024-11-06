@@ -122,7 +122,7 @@ class SketchServer:
         
         try:
             while True:
-                data = await reader.read(40960)
+                data = await reader.read(409600)
                 if not data:
                     print(f"Client {addr} disconnected")
                     self.mc.send_angles([0, 0, -90, 0, 0, 0], 50)
@@ -138,13 +138,20 @@ class SketchServer:
                         for line_index, line in enumerate(lines):
                             print(f"  Line {line_index + 1}:")
                             x, y = self.convert(line[0]['x'], line[0]['y'], self.width, self.height)
+                            t = line[0]['timestamp']
                             self.send_coords_with_compensation([x, y, ARM_Z_UP, -175, 0, -90], 100, 1)
                             time.sleep(2)
+                            last = time.time()
                             for point_index, point in enumerate(line):
-                                print(f"    Point {point_index + 1}: ({point['x']}, {point['y']})")
                                 x, y = self.convert(point['x'], point['y'], self.width, self.height)
                                 self.send_coords_with_compensation([x, y, ARM_Z_DOWN, -175, 0, -90], 60, 0)
-                                time.sleep(0.01)
+                                now = time.time()
+                                print(f"    Point {point_index + 1}: ({point['x']}, {point['y']}, {point['timestamp']}, {now-last}, {point['timestamp'] - t})")
+                                if now - last < point['timestamp'] - t:
+                                    time.sleep(point['timestamp'] - t - now + last)
+                                last = now
+                                t = point['timestamp']
+                            # pen up
                             time.sleep(1)
                             #self.mc.send_coord(3, ARM_Z_UP, 100)
                             self.send_coords_with_compensation([x, y, ARM_Z_UP, -175, 0, -90], 60, 1)
