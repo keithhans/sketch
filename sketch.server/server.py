@@ -23,7 +23,7 @@ ARM_Z_UP = 100  # 假设Z轴高度固定
 
 
 class SketchServer:
-    def __init__(self, host, port, scan_file, enable_compensation=True):
+    def __init__(self, host, port, scan_file=None, enable_compensation=False):
         self.host = host
         self.port = port
         self.clients = set()
@@ -36,6 +36,8 @@ class SketchServer:
         # 是否启用误差补偿
         self.enable_compensation = enable_compensation
         if self.enable_compensation:
+            if scan_file is None:
+                raise ValueError("scan_file must be provided when compensation is enabled")
             print("Error compensation enabled")
             self.load_compensation_data(scan_file)
         else:
@@ -292,14 +294,17 @@ class SketchServer:
             await server.serve_forever()
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description='Start sketch server with error compensation')
-    parser.add_argument('scan_file', help='Path to the scan results NPZ file')
+    parser = argparse.ArgumentParser(description='Start sketch server')
     parser.add_argument('--host', default='0.0.0.0', help='Host address')
     parser.add_argument('--port', type=int, default=6666, help='Port number')
-    parser.add_argument('--no-compensation', action='store_true', 
-                       help='Disable error compensation')
+    parser.add_argument('--enable-compensation', action='store_true', 
+                       help='Enable error compensation')
+    parser.add_argument('--scan-file', help='Path to the scan results NPZ file (required if compensation enabled)')
     args = parser.parse_args()
     
+    if args.enable_compensation and not args.scan_file:
+        parser.error("--scan-file is required when --enable-compensation is set")
+    
     sketch_server = SketchServer(args.host, args.port, args.scan_file, 
-                               enable_compensation=not args.no_compensation)
+                               enable_compensation=args.enable_compensation)
     asyncio.run(sketch_server.start_server())
