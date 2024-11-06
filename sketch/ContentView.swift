@@ -192,8 +192,7 @@ struct ContentView: View {
                 zip(line.points, line.timestamps).map { point, timestamp in
                     [
                         "x": point.x,
-                        "y": point.y,
-                        "timestamp": timestamp
+                        "y": point.y
                     ]
                 }
             }
