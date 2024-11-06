@@ -53,14 +53,18 @@ struct ContentView: View {
                     DragGesture(minimumDistance: 0, coordinateSpace: .local)
                         .onChanged { value in
                             if currentLine == nil {
-                                currentLine = Line(points: [value.location])
+                                currentLine = Line(
+                                    points: [value.location],
+                                    timestamps: [Date().timeIntervalSince1970]
+                                )
                             } else {
                                 currentLine?.points.append(value.location)
+                                currentLine?.timestamps.append(Date().timeIntervalSince1970)
                             }
                         }
                         .onEnded { _ in
                             if var line = currentLine {
-                                line.mergeCloseAngles()
+                                //line.mergeCloseAngles()
                                 lines.append(line)
                                 currentLine = nil
                             }
@@ -182,9 +186,13 @@ struct ContentView: View {
         if newLinesCount > 0 {
             print("发送了 \(newLinesCount) 条新线段")
             let newLines = Array(lines[sentLinesCount...])
-            let linesData = newLines.map { line -> [[String: CGFloat]] in
-                line.points.map { point in
-                    ["x": point.x, "y": point.y]
+            let linesData = newLines.map { line -> [[String: Any]] in
+                zip(line.points, line.timestamps).map { point, timestamp in
+                    [
+                        "x": point.x,
+                        "y": point.y,
+                        "timestamp": timestamp
+                    ]
                 }
             }
             let message: [String: Any] = [
@@ -194,11 +202,18 @@ struct ContentView: View {
             sendJSONMessage(message)
             sentLinesCount = lines.count
             
-            // 打印每条线的所有点坐标
+            // 打印每条线的所有点坐标和时间戳
             for (lineIndex, line) in newLines.enumerated() {
                 print("Line \(lineIndex + 1):")
-                for (pointIndex, point) in line.points.enumerated() {
-                    print("  Point \(pointIndex + 1): (x: \(point.x), y: \(point.y))")
+                for i in 0..<line.points.count {
+                    let point = line.points[i]
+                    let timestamp = line.timestamps[i]
+                    let milliseconds = Int((timestamp.truncatingRemainder(dividingBy: 1)) * 1000)
+                    let date = Date(timeIntervalSince1970: timestamp)
+                    let formatter = DateFormatter()
+                    formatter.dateFormat = "HH:mm:ss"
+                    let timeString = "\(formatter.string(from: date)).\(String(format: "%03d", milliseconds))"
+                    print("  Point \(i + 1): (x: \(point.x), y: \(point.y)) - Time: \(timeString)")
                 }
             }
         }
@@ -287,6 +302,12 @@ struct ContentView: View {
 
 struct Line {
     var points: [CGPoint]
+    var timestamps: [TimeInterval]
+    
+    init(points: [CGPoint], timestamps: [TimeInterval] = []) {
+        self.points = points
+        self.timestamps = timestamps
+    }
     
     mutating func mergeCloseAngles() {
         guard points.count > 2 else { return }

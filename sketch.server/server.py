@@ -144,7 +144,7 @@ class SketchServer:
                                 print(f"    Point {point_index + 1}: ({point['x']}, {point['y']})")
                                 x, y = self.convert(point['x'], point['y'], self.width, self.height)
                                 self.send_coords_with_compensation([x, y, ARM_Z_DOWN, -175, 0, -90], 60, 0)
-                                time.sleep(0.1)
+                                time.sleep(0.01)
                             time.sleep(1)
                             #self.mc.send_coord(3, ARM_Z_UP, 100)
                             self.send_coords_with_compensation([x, y, ARM_Z_UP, -175, 0, -90], 60, 1)
