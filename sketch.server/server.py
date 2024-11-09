@@ -18,7 +18,7 @@ ARM_X_MIN = 150
 ARM_X_MAX = 270
 ARM_Y_MIN = -100
 ARM_Y_MAX = 100
-ARM_Z_DOWN = 59 #70 # 假设Z轴高度固定
+ARM_Z_DOWN = 80 #58 #70 # 假设Z轴高度固定
 ARM_Z_UP = 100  # 假设Z轴高度固定
 
 
@@ -202,7 +202,7 @@ class SketchServer:
         
         try:
             while True:
-                data = await reader.read(409600)
+                data = await reader.read(4096000)
                 if not data:
                     print(f"Client {addr} disconnected")
                     self.mc.send_angles([0, 0, -90, 0, 0, 0], 50)
@@ -227,7 +227,8 @@ class SketchServer:
                                 time.sleep(0.2)
                                 
                                 # 获取实际位置并记录
-                                actual_coords = self.mc.get_coords()
+                                #actual_coords = self.mc.get_coords()
+                                actual_coords = None
                                 if actual_coords and len(actual_coords) >= 2:
                                     actual_x, actual_y = actual_coords[0], actual_coords[1]
                                     error_distance = np.sqrt((actual_x - x)**2 + (actual_y - y)**2)
