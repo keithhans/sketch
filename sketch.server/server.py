@@ -18,7 +18,7 @@ ARM_X_MIN = 150
 ARM_X_MAX = 270
 ARM_Y_MIN = -100
 ARM_Y_MAX = 100
-ARM_Z_DOWN = 80 #58 #70 # 假设Z轴高度固定
+ARM_Z_DOWN = 41 #58 #70 # 假设Z轴高度固定
 ARM_Z_UP = 100  # 假设Z轴高度固定
 
 
@@ -218,17 +218,17 @@ class SketchServer:
                         for line_index, line in enumerate(lines):
                             print(f"  Line {line_index + 1}:")
                             x, y = self.convert(line[0]['x'], line[0]['y'], self.width, self.height)
-                            self.send_coords_with_compensation([x, y, ARM_Z_UP, -175, 0, -90], 100, 1)
+                            self.send_coords_with_compensation([x, y, ARM_Z_UP, -180, 0, -90], 100, 1)
                             time.sleep(2)
                             last = time.time()
                             for point_index, point in enumerate(line):
                                 x, y = self.convert(point['x'], point['y'], self.width, self.height)
-                                self.send_coords_with_compensation([x, y, ARM_Z_DOWN, -175, 0, -90], 100, 1)
-                                time.sleep(0.2)
+                                self.send_coords_with_compensation([x, y, ARM_Z_DOWN, -180, 0, -90], 100, 1)
+                                time.sleep(0.27)
                                 
                                 # 获取实际位置并记录
-                                #actual_coords = self.mc.get_coords()
-                                actual_coords = None
+                                actual_coords = self.mc.get_coords()
+                                #actual_coords = None
                                 if actual_coords and len(actual_coords) >= 2:
                                     actual_x, actual_y = actual_coords[0], actual_coords[1]
                                     error_distance = np.sqrt((actual_x - x)**2 + (actual_y - y)**2)
@@ -257,7 +257,7 @@ class SketchServer:
                             
                             # pen up
                             time.sleep(1)
-                            self.send_coords_with_compensation([x, y, ARM_Z_UP, -175, 0, -90], 60, 1)
+                            self.send_coords_with_compensation([x, y, ARM_Z_UP, -180, 0, -90], 60, 1)
                             time.sleep(1)
                         
                         # 在完成所有线条后保存和绘制位置数据
@@ -267,7 +267,7 @@ class SketchServer:
                         dimensions = message['data']
                         self.width, self.height = dimensions['width'], dimensions['height']
                         print(f"Reset request received. Screen size: {self.width} x {self.height}")
-                        self.send_coords_with_compensation([210, 0, ARM_Z_UP, -175, 0, -90], 50, 1)
+                        self.send_coords_with_compensation([210, 0, ARM_Z_UP, -180, 0, -90], 50, 1)
                         time.sleep(2)
                         # 在新会话开始时清空位置记录
                         self.position_records = []
