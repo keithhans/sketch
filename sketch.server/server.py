@@ -243,8 +243,18 @@ class SketchServer:
                             ], 50, 1)
                     else:
                         print(f"Unknown message type: {message['type']}")
-                except json.JSONDecodeError:
+                except json.JSONDecodeError as e:
                     print(f"Invalid JSON received from {addr}")
+                    print(f"Error details: {str(e)}")
+                    print("Received data:")
+                    try:
+                        decoded_data = data.decode()
+                        print(f"Length: {len(decoded_data)} bytes")
+                        print(f"Content: {decoded_data}")
+                    except UnicodeDecodeError:
+                        print("Failed to decode data as UTF-8")
+                        print(f"Raw data length: {len(data)} bytes")
+                        print(f"Raw data: {data}")
                 
         except asyncio.CancelledError:
             pass
