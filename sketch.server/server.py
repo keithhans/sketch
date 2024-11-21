@@ -4,12 +4,9 @@ import time
 from pymycobot import MyCobot
 import argparse
 import numpy as np
-from scipy.interpolate import griddata
 import matplotlib.pyplot as plt
 import csv
 from datetime import datetime
-
-# 添加新的导入
 import os
 from pathlib import Path
 
@@ -18,12 +15,11 @@ ARM_X_MIN = 150
 ARM_X_MAX = 270
 ARM_Y_MIN = -100
 ARM_Y_MAX = 100
-ARM_Z_DOWN = 41 #58 #70 # 假设Z轴高度固定
-ARM_Z_UP = 100  # 假设Z轴高度固定
-
+ARM_Z_DOWN = 41
+ARM_Z_UP = 100
 
 class SketchServer:
-    def __init__(self, host, port, scan_file=None, enable_compensation=False):
+    def __init__(self, host, port):
         self.host = host
         self.port = port
         self.clients = set()
@@ -32,16 +28,6 @@ class SketchServer:
         print(f"fresh mode:{self.mc.get_fresh_mode()}")
         self.width = 800
         self.height = 600
-        
-        # 是否启用误差补偿
-        self.enable_compensation = enable_compensation
-        if self.enable_compensation:
-            if scan_file is None:
-                raise ValueError("scan_file must be provided when compensation is enabled")
-            print("Error compensation enabled")
-            self.load_compensation_data(scan_file)
-        else:
-            print("Error compensation disabled")
         
         # 添加位置记录列表
         self.position_records = []
@@ -52,59 +38,6 @@ class SketchServer:
         
         # 创建新的会话文件名
         self.session_time = datetime.now().strftime("%Y%m%d_%H%M%S")
-    
-    def load_compensation_data(self, scan_file):
-        """加载误差补偿数据"""
-        data = np.load(scan_file)
-        self.target_points = data['target_points']
-        self.actual_points = data['actual_points']
-        self.errors = self.actual_points[:, :3] - self.target_points[:, :3]
-        print("Loaded compensation data")
-    
-    def predict_error_at_point(self, point, method='linear'):
-        """预测特定点的误差"""
-        predicted_error = []
-        for i in range(3):  # x, y, z 三个方向
-            error_i = griddata((self.target_points[:, 0], self.target_points[:, 1]),
-                             self.errors[:, i],
-                             (point[0], point[1]),
-                             method=method)
-            if np.isnan(error_i):
-                distances = np.linalg.norm(self.target_points[:, :2] - np.array([point[0], point[1]]), axis=1)
-                nearest_idx = np.argmin(distances)
-                error_i = self.errors[nearest_idx, i]
-            predicted_error.append(float(error_i))
-        return np.array(predicted_error)
-    
-    def send_coords_with_compensation(self, coords, speed, mode):
-        """发送经过误差补偿的坐标"""
-        if not self.enable_compensation:
-            # 如果未启用补偿，直接发送原始坐标
-            self.mc.send_coords(coords, speed, mode)
-            return
-            
-        original_point = np.array(coords[:3])
-        predicted_error = self.predict_error_at_point(original_point)
-        
-        # 计算补偿后的位置
-        compensated_position = original_point - predicted_error
-        
-        # 构建完整的补偿后坐标
-        compensated_coords = [
-            compensated_position[0],  # x
-            compensated_position[1],  # y
-            compensated_position[2],  # z
-            coords[3],  # rx
-            coords[4],  # ry
-            coords[5]   # rz
-        ]
-        
-        print(f"Original coords: {coords}")
-        print(f"Predicted error: {predicted_error}")
-        print(f"Compensated coords: {compensated_coords}")
-        
-        # 发送补偿后的坐标
-        self.mc.send_coords(compensated_coords, speed, mode)
 
     def convert(self, x, y, w, h):
         # 计算原始图片的纵横比
@@ -123,15 +56,12 @@ class SketchServer:
             # 高图，以高度为基准进行缩放
             scale = arm_height / h
         
-        #print(f"scale:{scale}")
-
         # 计算偏移量，使图像居中
         offset_x = ARM_X_MIN + (arm_width - w * scale) / 2
         offset_y = ARM_Y_MIN + (arm_height - h * scale) / 2
 
         x = x * scale + offset_x
         y = y * scale + offset_y
-        #print(f"after convert:{x}, {y}")
         return x, -y
 
     def save_and_plot_positions(self):
@@ -162,11 +92,9 @@ class SketchServer:
         # 创建图形
         plt.figure(figsize=(12, 8))
         
-        # 绘制目标位置
+        # 绘制目标位置和实际位置
         plt.scatter(target_positions[:, 0], target_positions[:, 1], 
                    c='blue', label='Target Positions', alpha=0.5)
-        
-        # 绘制实际位置
         plt.scatter(actual_positions[:, 0], actual_positions[:, 1], 
                    c='red', label='Actual Positions', alpha=0.5)
         
@@ -175,14 +103,11 @@ class SketchServer:
             plt.plot([target[0], actual[0]], [target[1], actual[1]], 
                     'g-', alpha=0.3)
         
-        # 设置图形属性
         plt.title('Target vs Actual Positions')
         plt.xlabel('X Position')
         plt.ylabel('Y Position')
         plt.legend()
         plt.grid(True)
-        
-        # 保存图形
         plt.savefig(self.data_dir / f"positions_plot_{self.session_time}.png")
         plt.close()
         
@@ -218,17 +143,16 @@ class SketchServer:
                         for line_index, line in enumerate(lines):
                             print(f"  Line {line_index + 1}:")
                             x, y = self.convert(line[0]['x'], line[0]['y'], self.width, self.height)
-                            self.send_coords_with_compensation([x, y, ARM_Z_UP, -180, 0, -90], 100, 1)
+                            self.mc.send_coords([x, y, ARM_Z_UP, -180, 0, -90], 100, 1)
                             time.sleep(2)
                             last = time.time()
                             for point_index, point in enumerate(line):
                                 x, y = self.convert(point['x'], point['y'], self.width, self.height)
-                                self.send_coords_with_compensation([x, y, ARM_Z_DOWN, -180, 0, -90], 100, 1)
+                                self.mc.send_coords([x, y, ARM_Z_DOWN, -180, 0, -90], 100, 1)
                                 time.sleep(0.27)
                                 
                                 # 获取实际位置并记录
                                 actual_coords = self.mc.get_coords()
-                                #actual_coords = None
                                 if actual_coords and len(actual_coords) >= 2:
                                     actual_x, actual_y = actual_coords[0], actual_coords[1]
                                     error_distance = np.sqrt((actual_x - x)**2 + (actual_y - y)**2)
@@ -247,9 +171,7 @@ class SketchServer:
                                     print(f"      Error: {error_distance:.2f}")
                                 
                                 now = time.time()
-                                
                                 print(f"    Point {point_index + 1}: ({x}, {y}), {now-last:.3f}")
-
                                 interval = 0.30
                                 if now - last < interval:
                                     time.sleep(interval - (now - last))
@@ -257,7 +179,7 @@ class SketchServer:
                             
                             # pen up
                             time.sleep(1)
-                            self.send_coords_with_compensation([x, y, ARM_Z_UP, -180, 0, -90], 60, 1)
+                            self.mc.send_coords([x, y, ARM_Z_UP, -180, 0, -90], 60, 1)
                             time.sleep(1)
                         
                         # 在完成所有线条后保存和绘制位置数据
@@ -267,7 +189,7 @@ class SketchServer:
                         dimensions = message['data']
                         self.width, self.height = dimensions['width'], dimensions['height']
                         print(f"Reset request received. Screen size: {self.width} x {self.height}")
-                        self.send_coords_with_compensation([210, 0, ARM_Z_UP, -180, 0, -90], 50, 1)
+                        self.mc.send_coords([210, 0, ARM_Z_UP, -180, 0, -90], 50, 1)
                         time.sleep(2)
                         # 在新会话开始时清空位置记录
                         self.position_records = []
@@ -298,14 +220,7 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='Start sketch server')
     parser.add_argument('--host', default='0.0.0.0', help='Host address')
     parser.add_argument('--port', type=int, default=6666, help='Port number')
-    parser.add_argument('--enable-compensation', action='store_true', 
-                       help='Enable error compensation')
-    parser.add_argument('--scan-file', help='Path to the scan results NPZ file (required if compensation enabled)')
     args = parser.parse_args()
     
-    if args.enable_compensation and not args.scan_file:
-        parser.error("--scan-file is required when --enable-compensation is set")
-    
-    sketch_server = SketchServer(args.host, args.port, args.scan_file, 
-                               enable_compensation=args.enable_compensation)
+    sketch_server = SketchServer(args.host, args.port)
     asyncio.run(sketch_server.start_server())
