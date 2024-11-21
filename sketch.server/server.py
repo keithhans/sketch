@@ -152,19 +152,35 @@ class SketchServer:
         addr = writer.get_extra_info('peername')
         print(f"New connection from {addr}")
         self.clients.add(writer)
+        MAX_MESSAGE_SIZE = 10 * 1024 * 1024  # 10MB 限制
         
         try:
             while True:
-                data = await reader.read(4096000)
-                if not data:
-                    print(f"Client {addr} disconnected")
-                    self.mc.send_angles([0, 0, -90, 0, 0, 0], 50)
-                    time.sleep(2)
-                    break
                 try:
-                    message = json.loads(data.decode())
-                    print(f"Received message from {addr}")
+                    data = b''
+                    while True:
+                        if len(data) > MAX_MESSAGE_SIZE:
+                            print(f"Message too large from {addr}")
+                            return
+                            
+                        chunk = await reader.read(4096)
+                        if not chunk:
+                            print(f"Client {addr} disconnected")
+                            self.mc.send_angles([0, 0, -90, 0, 0, 0], 50)
+                            time.sleep(2)
+                            return
+                        
+                        data += chunk
+                        print(f"Received chunk, total size now: {len(data)} bytes")
+                        
+                        try:
+                            message = json.loads(data.decode())
+                            print(f"Received complete message from {addr}, total size: {len(data)} bytes")
+                            break
+                        except json.JSONDecodeError:
+                            continue
                     
+                    # 处理消息
                     if message['type'] == "LINES":
                         lines = message['data']
                         print("Received lines:")
@@ -246,15 +262,7 @@ class SketchServer:
                 except json.JSONDecodeError as e:
                     print(f"Invalid JSON received from {addr}")
                     print(f"Error details: {str(e)}")
-                    print("Received data:")
-                    try:
-                        decoded_data = data.decode()
-                        print(f"Length: {len(decoded_data)} bytes")
-                        print(f"Content: {decoded_data}")
-                    except UnicodeDecodeError:
-                        print("Failed to decode data as UTF-8")
-                        print(f"Raw data length: {len(data)} bytes")
-                        print(f"Raw data: {data}")
+                    print(f"Total data length: {len(data)} bytes")
                 
         except asyncio.CancelledError:
             pass
