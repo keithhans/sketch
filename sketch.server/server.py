@@ -15,7 +15,7 @@ ARM_X_MIN = 150
 ARM_X_MAX = 270
 ARM_Y_MIN = -100
 ARM_Y_MAX = 100
-ARM_Z_DOWN = 41
+ARM_Z_DIFF = 59
 ARM_Z_UP = 100
 
 class SketchServer:
@@ -38,6 +38,34 @@ class SketchServer:
         
         # 创建新的会话文件名
         self.session_time = datetime.now().strftime("%Y%m%d_%H%M%S")
+        
+        # 加载保存的 arm_z_up 值
+        self.config_file = Path("robot_config.json")
+        self.load_config()
+
+    def load_config(self):
+        """从配置文件加载 arm_z_up 值"""
+        if self.config_file.exists():
+            try:
+                with open(self.config_file, 'r') as f:
+                    config = json.load(f)
+                    self.arm_z_up = config.get('arm_z_up', ARM_Z_UP)
+                print(f"Loaded ARM_Z_UP from config: {self.arm_z_up}")
+            except Exception as e:
+                print(f"Error loading config: {e}")
+                self.arm_z_up = ARM_Z_UP
+        else:
+            self.arm_z_up = ARM_Z_UP
+            self.save_config()
+
+    def save_config(self):
+        """保存 arm_z_up 值到配置文件"""
+        try:
+            with open(self.config_file, 'w') as f:
+                json.dump({'arm_z_up': self.arm_z_up}, f)
+            print(f"Saved ARM_Z_UP to config: {self.arm_z_up}")
+        except Exception as e:
+            print(f"Error saving config: {e}")
 
     def convert(self, x, y, w, h):
         # 计算原始图片的纵横比
@@ -143,12 +171,12 @@ class SketchServer:
                         for line_index, line in enumerate(lines):
                             print(f"  Line {line_index + 1}:")
                             x, y = self.convert(line[0]['x'], line[0]['y'], self.width, self.height)
-                            self.mc.send_coords([x, y, ARM_Z_UP, -180, 0, -90], 100, 1)
+                            self.mc.send_coords([x, y, self.arm_z_up, -180, 0, -90], 100, 1)
                             time.sleep(2)
                             last = time.time()
                             for point_index, point in enumerate(line):
                                 x, y = self.convert(point['x'], point['y'], self.width, self.height)
-                                self.mc.send_coords([x, y, ARM_Z_DOWN, -180, 0, -90], 100, 1)
+                                self.mc.send_coords([x, y, self.arm_z_up - ARM_Z_DIFF, -180, 0, -90], 100, 1)
                                 time.sleep(0.27)
                                 
                                 # 获取实际位置并记录
@@ -179,7 +207,7 @@ class SketchServer:
                             
                             # pen up
                             time.sleep(1)
-                            self.mc.send_coords([x, y, ARM_Z_UP, -180, 0, -90], 60, 1)
+                            self.mc.send_coords([x, y, self.arm_z_up, -180, 0, -90], 60, 1)
                             time.sleep(1)
                         
                         # 在完成所有线条后保存和绘制位置数据
@@ -189,10 +217,30 @@ class SketchServer:
                         dimensions = message['data']
                         self.width, self.height = dimensions['width'], dimensions['height']
                         print(f"Reset request received. Screen size: {self.width} x {self.height}")
-                        self.mc.send_coords([210, 0, ARM_Z_UP, -180, 0, -90], 50, 1)
+                        self.mc.send_coords([210, 0, self.arm_z_up, -180, 0, -90], 50, 1)
                         time.sleep(2)
                         # 在新会话开始时清空位置记录
                         self.position_records = []
+                    elif message['type'] == "ADJUST_HEIGHT":
+                        increase = message['data']['increase']
+                        if increase:
+                            self.arm_z_up += 1
+                        else:
+                            self.arm_z_up -= 1
+                        print(f"Adjusted ARM_Z_UP to: {self.arm_z_up}")
+                        
+                        # 保存新的高度值
+                        self.save_config()
+                        
+                        # 立即移动到新的高度以展示效果
+                        current_coords = self.mc.get_coords()
+                        if current_coords:
+                            self.mc.send_coords([
+                                current_coords[0],
+                                current_coords[1],
+                                self.arm_z_up,
+                                -180, 0, -90
+                            ], 50, 1)
                     else:
                         print(f"Unknown message type: {message['type']}")
                 except json.JSONDecodeError:

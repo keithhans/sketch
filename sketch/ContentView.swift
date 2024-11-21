@@ -96,6 +96,28 @@ struct ContentView: View {
                                 .clipShape(Circle())
                         }
                         
+                        Button(action: {
+                            adjustHeight(increase: false)  // 下降
+                        }) {
+                            Image(systemName: "arrow.down.circle")
+                                .foregroundColor(.white)
+                                .padding(10)
+                                .background(Color.blue)
+                                .clipShape(Circle())
+                        }
+                        .disabled(!isConnected)
+                        
+                        Button(action: {
+                            adjustHeight(increase: true)   // 上升
+                        }) {
+                            Image(systemName: "arrow.up.circle")
+                                .foregroundColor(.white)
+                                .padding(10)
+                                .background(Color.blue)
+                                .clipShape(Circle())
+                        }
+                        .disabled(!isConnected)
+                        
                         Spacer()
                         
                         Button(action: {
@@ -299,6 +321,17 @@ struct ContentView: View {
                 self.isConnected = false
             }
         }
+    }
+    
+    private func adjustHeight(increase: Bool) {
+        let message: [String: Any] = [
+            "type": "ADJUST_HEIGHT",
+            "data": [
+                "increase": increase
+            ]
+        ]
+        sendJSONMessage(message)
+        print("Sent height adjustment message: \(increase ? "increase" : "decrease")")
     }
 }
 
