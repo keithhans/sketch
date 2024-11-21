@@ -238,6 +238,7 @@ struct ContentView: View {
         
         do {
             let jsonData = try JSONSerialization.data(withJSONObject: message, options: [])
+            print("Sending JSON data of length: \(jsonData.count) bytes")
             connection.send(content: jsonData, completion: .contentProcessed { error in
                 if let error = error {
                     print("Failed to send message: \(error)")
