@@ -138,13 +138,13 @@ class RoboticArm:
             print(f"Error during moveJ: {str(e)}")
             return False
     
-    def moveL(self, position, orientation, velocity=50, radius=0):
+    def moveL(self, pose, velocity=50, radius=0):
         """
         执行直线运动(MoveL)
         
         Args:
-            position (list): 目标位置 [x, y, z]，单位为毫米
-            orientation (list): 目标姿态 [rx, ry, rz]，单位为弧度
+            pose (list): 目标位姿 [x, y, z, rx, ry, rz]
+                        位置[x,y,z]单位为毫米，姿态[rx,ry,rz]单位为弧度
             velocity (int): 速度百分比 (0-100)
             radius (float): 交融半径，单位为毫米（当前不支持，默认为0）
             
@@ -156,19 +156,20 @@ class RoboticArm:
             return False
             
         try:
-            # 将位置值转换为整数（单位：0.001mm）
-            position_int = [int(pos * 1000) for pos in position]  # 毫米转换为0.001mm
-            
-            # 将姿态值转换为整数（单位：0.001rad）
-            orientation_int = [int(ori * 1000) for ori in orientation]  # 弧度转换为0.001rad
-            
-            # 合并位置和姿态
-            pose = position_int + orientation_int
+            # 转换位姿值为整数
+            pose_int = [
+                int(pose[0] * 1000),  # x: mm -> 0.001mm
+                int(pose[1] * 1000),  # y: mm -> 0.001mm
+                int(pose[2] * 1000),  # z: mm -> 0.001mm
+                int(pose[3] * 1000),  # rx: rad -> 0.001rad
+                int(pose[4] * 1000),  # ry: rad -> 0.001rad
+                int(pose[5] * 1000)   # rz: rad -> 0.001rad
+            ]
             
             # 构建命令
             command = {
                 "command": "movel",
-                "pose": pose,
+                "pose": pose_int,
                 "v": velocity,
                 "r": radius
             }
@@ -330,6 +331,161 @@ class RoboticArm:
         except Exception as e:
             print(f"Error during get_joint_degree: {str(e)}")
             return None
+    
+    def get_current_arm_state(self):
+        """
+        获取机械臂当前状态
+        
+        Returns:
+            dict|None: 成功返回包含机械臂状态信息的字典，失败返回None
+            返回字典格式：
+            {
+                'joint': list,  # 关节角度列表（度）
+                'pose': {
+                    'position': list,    # [x, y, z] （毫米）
+                    'orientation': list  # [rx, ry, rz] （弧度）
+                },
+                'arm_err': int,  # 机械臂错误代码
+                'sys_err': int   # 控制器错误代码
+            }
+        """
+        if not self.is_connected():
+            print("Not connected to server")
+            return None
+            
+        try:
+            # 构建命令
+            command = {
+                "command": "get_current_arm_state"
+            }
+            
+            # 发送命令，确保以\r\n结尾
+            command_str = json.dumps(command) + "\r\n"
+            self.socket.sendall(command_str.encode('utf-8'))
+            print(f"Sent command: {command_str.strip()}")
+            
+            # 接收响应
+            response = self.socket.recv(self.buffer_size)
+            response_data = json.loads(response.decode('utf-8'))
+            print(f"Received response: {response_data}")
+            
+            # 检查响应
+            if response_data.get("state") == "current_arm_state":
+                arm_state = response_data.get("arm_state", {})
+                
+                # 获取关节角度并转换单位（0.001度 -> 度）
+                joint = [angle / 1000.0 for angle in arm_state.get("joint", [])]
+                
+                # 获取位姿数据
+                pose_raw = arm_state.get("pose", [])
+                if len(pose_raw) >= 6:
+                    # 转换位置单位（0.001mm -> mm）和姿态单位（0.001rad -> rad）
+                    position = [pos / 1000.0 for pos in pose_raw[:3]]
+                    orientation = [ori / 1000.0 for ori in pose_raw[3:6]]
+                    pose = {
+                        'position': position,
+                        'orientation': orientation
+                    }
+                else:
+                    pose = {'position': [], 'orientation': []}
+                
+                # 获取错误代码
+                arm_err = arm_state.get("arm_err", 0)
+                sys_err = arm_state.get("sys_err", 0)
+                
+                # 构建返回数据
+                result = {
+                    'joint': joint,
+                    'pose': pose,
+                    'arm_err': arm_err,
+                    'sys_err': sys_err
+                }
+                
+                print("Current arm state:")
+                print(f"  Joint angles (deg): {joint}")
+                print(f"  Position (mm): {pose['position']}")
+                print(f"  Orientation (rad): {pose['orientation']}")
+                print(f"  Arm error: {arm_err}")
+                print(f"  System error: {sys_err}")
+                
+                return result
+            else:
+                print("Unexpected response format")
+                return None
+                
+        except socket.timeout:
+            print("Timeout while waiting for response")
+            return None
+            
+        except Exception as e:
+            print(f"Error during get_current_arm_state: {str(e)}")
+            return None
+    
+    def moveJ_P(self, pose, velocity=50, radius=0):
+        """
+        关节空间规划到目标位姿(MoveJ_P)
+        
+        Args:
+            pose (list): 目标位姿 [x, y, z, rx, ry, rz]
+                        位置[x,y,z]单位为毫米，姿态[rx,ry,rz]单位为弧度
+            velocity (int): 速度百分比 (0-100)
+            radius (float): 交融半径（当前不支持，默认为0）
+            
+        Returns:
+            bool: 运动是否成功
+        """
+        if not self.is_connected():
+            print("Not connected to server")
+            return False
+            
+        try:
+            # 转换位姿值为整数
+            pose_int = [
+                int(pose[0] * 1000),  # x: mm -> 0.001mm
+                int(pose[1] * 1000),  # y: mm -> 0.001mm
+                int(pose[2] * 1000),  # z: mm -> 0.001mm
+                int(pose[3] * 1000),  # rx: rad -> 0.001rad
+                int(pose[4] * 1000),  # ry: rad -> 0.001rad
+                int(pose[5] * 1000)   # rz: rad -> 0.001rad
+            ]
+            
+            # 构建命令
+            command = {
+                "command": "movej_p",
+                "pose": pose_int,
+                "v": velocity,
+                "r": radius
+            }
+            
+            # 发送命令，确保以\r\n结尾
+            command_str = json.dumps(command) + "\r\n"
+            self.socket.sendall(command_str.encode('utf-8'))
+            print(f"Sent command: {command_str.strip()}")
+            
+            # 接收响应
+            response = self.socket.recv(self.buffer_size)
+            response_data = json.loads(response.decode('utf-8'))
+            print(f"Received response: {response_data}")
+            
+            # 检查响应
+            if response_data.get("state") == "current_trajectory_state":
+                trajectory_state = response_data.get("trajectory_state", False)
+                if trajectory_state:
+                    print("Successfully moved to target pose")
+                else:
+                    print("Failed to plan trajectory")
+                return trajectory_state
+            else:
+                print("Unexpected response format")
+                return False
+                
+        except socket.timeout:
+            print("Timeout while waiting for response")
+            return False
+            
+        except Exception as e:
+            print(f"Error during moveJ_P: {str(e)}")
+            return False
 
 def main():
     # 测试代码
@@ -341,6 +497,20 @@ def main():
         print("Connection test successful")
         
         try:
+            # 测试获取机械臂状态
+            print("\nTesting get_current_arm_state...")
+            state = arm.get_current_arm_state()
+            if state is not None:
+                print("\nArm state details:")
+                print(f"Joint angles: {state['joint']}")
+                print(f"Position: {state['pose']['position']}")
+                print(f"Orientation: {state['pose']['orientation']}")
+                print(f"Arm error code: {state['arm_err']}")
+                print(f"System error code: {state['sys_err']}")
+                print("Get arm state test successful")
+            else:
+                print("Get arm state test failed")
+            
             # 获取当前关节角度
             print("\nTesting get_joint_degree...")
             joint_angles = arm.get_joint_degree()
@@ -361,9 +531,8 @@ def main():
             
             # 测试直线运动
             print("\nTesting moveL...")
-            position = [100, 200, 30]  # 毫米
-            orientation = [0.4, 0.5, 0.6]  # 弧度
-            success = arm.moveL(position, orientation, velocity=50)
+            pose = [100, 200, 30, 0.4, 0.5, 0.6]  # [x,y,z,rx,ry,rz]，位置单位：毫米，姿态单位：弧度
+            success = arm.moveL(pose, velocity=50)
             if success:
                 print("MoveL test successful")
             else:
@@ -378,6 +547,15 @@ def main():
                 print("MoveC test successful")
             else:
                 print("MoveC test failed")
+                
+            # 测试关节空间位姿规划
+            print("\nTesting moveJ_P...")
+            pose = [100, 200, 30, 0.4, 0.5, 0.6]  # [x,y,z,rx,ry,rz]，位置单位：毫米，姿态单位：弧度
+            success = arm.moveJ_P(pose, velocity=50)
+            if success:
+                print("MoveJ_P test successful")
+            else:
+                print("MoveJ_P test failed")
                 
         finally:
             # 断开连接
