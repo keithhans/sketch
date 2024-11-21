@@ -182,6 +182,7 @@ struct ContentView: View {
         .edgesIgnoringSafeArea(.all)
         .sheet(isPresented: $showConfigSheet) {
             ConfigView(serverAddress: $serverAddress)
+                .frame(width: 350, height: 300)
         }
     }
     
@@ -376,26 +377,83 @@ struct Line {
 struct ConfigView: View {
     @Binding var serverAddress: String
     @Environment(\.presentationMode) var presentationMode
+    @State private var tempAddress: String = ""
     
     var body: some View {
-        VStack {
-            HStack {
-                Text("配置")
-                    .font(.headline)
-                Spacer()
-                Button("完成") {
-                    presentationMode.wrappedValue.dismiss()
-                }
-            }
-            .padding()
+        ZStack {
+            // 背景色
+            Color(white: 0.95)
+                .edgesIgnoringSafeArea(.all)
             
-            Form {
-                Section(header: Text("服务器配置")) {
-                    TextField("IP:Port", text: $serverAddress)
+            VStack(spacing: 20) {
+                // 标题栏
+                HStack {
+                    Text("服务器配置")
+                        .font(.headline)
+                        .foregroundColor(.black)
+                    Spacer()
                 }
+                .padding()
+                .background(Color.white)
+                .shadow(radius: 1)
+                
+                // 输入区域
+                VStack(alignment: .leading, spacing: 10) {
+                    Text("服务器地址")
+                        .font(.subheadline)
+                        .foregroundColor(.gray)
+                    
+                    HStack {
+                        Image(systemName: "server.rack")
+                            .foregroundColor(.blue)
+                        TextField("IP:Port", text: $tempAddress)
+                            .textFieldStyle(RoundedBorderTextFieldStyle())
+                            .disableAutocorrection(true)
+                    }
+                    
+                    Text("示例: 192.168.1.100:6666")
+                        .font(.caption)
+                        .foregroundColor(.gray)
+                }
+                .padding()
+                .background(Color.white)
+                .cornerRadius(10)
+                .shadow(radius: 1)
+                
+                Spacer()
+                
+                // 按钮区域
+                HStack(spacing: 15) {
+                    Button(action: {
+                        presentationMode.wrappedValue.dismiss()
+                    }) {
+                        Text("取消")
+                            .frame(maxWidth: .infinity)
+                            .padding()
+                            .background(Color.gray.opacity(0.2))
+                            .foregroundColor(.black)
+                            .cornerRadius(10)
+                    }
+                    
+                    Button(action: {
+                        serverAddress = tempAddress
+                        presentationMode.wrappedValue.dismiss()
+                    }) {
+                        Text("保存")
+                            .frame(maxWidth: .infinity)
+                            .padding()
+                            .background(Color.blue)
+                            .foregroundColor(.white)
+                            .cornerRadius(10)
+                    }
+                }
+                .padding()
             }
+            .padding(.vertical)
         }
-        .frame(width: 300, height: 150)
+        .onAppear {
+            tempAddress = serverAddress
+        }
     }
 }
 
