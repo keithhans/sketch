@@ -25,8 +25,8 @@ class SketchServer:
         self.clients = set()
         self.rm = RoboticArm()
         self.rm.connect("192.168.1.18")
-        self.width = 600
-        self.height = 900
+        self.width = 800
+        self.height = 600
         
         # 添加位置记录列表
         self.position_records = []
@@ -165,7 +165,7 @@ class SketchServer:
                         chunk = await reader.read(4096)
                         if not chunk:
                             print(f"Client {addr} disconnected")
-                            self.rm.moveL([-303.9, 151.029, self.arm_z_up, -3.092, -0.011, -0.359], 10)
+                            self.rm.moveL([-303.9, 151.029, self.arm_z_up, -3.14, -0.0, -0.359], 50)
                             time.sleep(2)
                             return
                         
@@ -186,55 +186,55 @@ class SketchServer:
                         for line_index, line in enumerate(lines):
                             print(f"  Line {line_index + 1}:")
                             x, y = self.convert(line[0]['x'], line[0]['y'], self.width, self.height)
-                            self.rm.moveL([x, y, self.arm_z_up, -3.092, -0.011, -0.359], 10)
+                            self.rm.moveL([x, y, self.arm_z_up, -3.14, -0.0, -0.359], 50)
                             time.sleep(2)
                             last = time.time()
                             for point_index, point in enumerate(line):
                                 x, y = self.convert(point['x'], point['y'], self.width, self.height)
-                                self.rm.moveL([x, y, self.arm_z_up - ARM_Z_DIFF, -3.092, -0.011, -0.359], 10)
-                                time.sleep(0.27)
+                                self.rm.moveL([x, y, self.arm_z_up - ARM_Z_DIFF, -3.14, -0.0, -0.359], 20)
+                                # time.sleep(0.27)
                                 
-                                # 获取实际位置并记录
-                                state = self.rm.get_current_arm_state()
-                                actual_coords = state['pose']['position']
+                                # # 获取实际位置并记录
+                                # state = self.rm.get_current_arm_state()
+                                # actual_coords = state['pose']['position']
 
-                                if actual_coords and len(actual_coords) >= 2:
-                                    actual_x, actual_y = actual_coords[0], actual_coords[1]
-                                    error_distance = np.sqrt((actual_x - x)**2 + (actual_y - y)**2)
+                                # if actual_coords and len(actual_coords) >= 2:
+                                #     actual_x, actual_y = actual_coords[0], actual_coords[1]
+                                #     error_distance = np.sqrt((actual_x - x)**2 + (actual_y - y)**2)
                                     
-                                    self.position_records.append({
-                                        'target_x': x,
-                                        'target_y': y,
-                                        'actual_x': actual_x,
-                                        'actual_y': actual_y,
-                                        'error_distance': error_distance
-                                    })
+                                #     self.position_records.append({
+                                #         'target_x': x,
+                                #         'target_y': y,
+                                #         'actual_x': actual_x,
+                                #         'actual_y': actual_y,
+                                #         'error_distance': error_distance
+                                #     })
                                     
-                                    print(f"    Point {point_index + 1}:")
-                                    print(f"      Target: ({x:.2f}, {y:.2f})")
-                                    print(f"      Actual: ({actual_x:.2f}, {actual_y:.2f})")
-                                    print(f"      Error: {error_distance:.2f}")
+                                #     print(f"    Point {point_index + 1}:")
+                                #     print(f"      Target: ({x:.2f}, {y:.2f})")
+                                #     print(f"      Actual: ({actual_x:.2f}, {actual_y:.2f})")
+                                #     print(f"      Error: {error_distance:.2f}")
                                 
                                 now = time.time()
                                 print(f"    Point {point_index + 1}: ({x}, {y}), {now-last:.3f}")
-                                interval = 0.30
-                                if now - last < interval:
-                                    time.sleep(interval - (now - last))
+                                # interval = 0.30
+                                # if now - last < interval:
+                                #     time.sleep(interval - (now - last))
                                 last = time.time()
                             
                             # pen up
                             time.sleep(1)
-                            self.rm.moveL([x, y, self.arm_z_up, -3.092, -0.011, -0.359], 10)
+                            self.rm.moveL([x, y, self.arm_z_up, -3.14, -0.0, -0.359], 50)
                             time.sleep(1)
                         
                         # 在完成所有线条后保存和绘制位置数据
-                        self.save_and_plot_positions()
+                        #self.save_and_plot_positions()
                         
                     elif message['type'] == "RESET":
                         dimensions = message['data']
                         self.width, self.height = dimensions['width'], dimensions['height']
                         print(f"Reset request received. Screen size: {self.width} x {self.height}")
-                        self.rm.moveL([-303.9, 151.029, self.arm_z_up, -3.092, -0.011, -0.359], 10)
+                        self.rm.moveL([-303.9, 151.029, self.arm_z_up, -3.14, -0.0, -0.359], 50)
                         time.sleep(2)
                         # 在新会话开始时清空位置记录
                         self.position_records = []
@@ -254,7 +254,7 @@ class SketchServer:
                         current_coords = state['pose']['position']
 
                         if current_coords:
-                            self.rm.moveL([-303.9, 151.029, self.arm_z_up, -3.092, -0.011, -0.359], 10)
+                            self.rm.moveL([current_coords[0], current_coords[1], self.arm_z_up, -3.14, -0.0, -0.359], 10)
                         
                     else:
                         print(f"Unknown message type: {message['type']}")

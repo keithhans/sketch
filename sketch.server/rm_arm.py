@@ -9,7 +9,7 @@ class RoboticArm:
         self.default_port = 8080
         self.buffer_size = 1024  # 接收缓冲区大小
     
-    def connect(self, ip_address, timeout=5):
+    def connect(self, ip_address, timeout=60):
         """
         连接到指定IP地址的机械臂服务器
         
@@ -216,7 +216,7 @@ class RoboticArm:
                     print("Failed to plan trajectory")
                 return trajectory_state
             else:
-                print("Unexpected response format")
+                print(f"Unexpected response format for moveL: {response_data}")
                 return False
                 
         except Exception as e:
@@ -421,7 +421,7 @@ class RoboticArm:
                 
                 return result
             else:
-                print("Unexpected response format")
+                print(f"Unexpected response format for get_current_arm_state: {response_data}")
                 return None
                 
         except Exception as e:
