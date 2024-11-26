@@ -80,6 +80,33 @@ class RoboticArm:
         """
         return self.connected
     
+    def _recv_response(self):
+        """
+        接收完整的响应数据，直到遇到\r\n结束符
+        
+        Returns:
+            dict|None: 解析后的JSON响应数据，失败返回None
+        """
+        try:
+            data = ""
+            while True:
+                chunk = self.socket.recv(self.buffer_size).decode('utf-8')
+                if not chunk:
+                    raise ConnectionError("Connection closed by server")
+                
+                data += chunk
+                if data.endswith('\r\n'):
+                    # 找到完整的消息，去除结束符
+                    data = data.rstrip('\r\n')
+                    break
+                    
+            print(f"Received complete data: {data}")
+            return json.loads(data)
+            
+        except Exception as e:
+            print(f"Error receiving response: {str(e)}")
+            return None
+    
     def moveJ(self, joint_angles, velocity=50, radius=0):
         """
         执行关节运动(MoveJ)
@@ -111,13 +138,13 @@ class RoboticArm:
             # 发送命令，确保以\r\n结尾
             command_str = json.dumps(command) + "\r\n"
             self.socket.sendall(command_str.encode('utf-8'))
-            print(f"Sent command: {command_str.strip()}")  # strip()用于打印时去除结尾的\r\n
+            print(f"Sent command: {command_str.strip()}")
             
-            # 接收响应
-            response = self.socket.recv(self.buffer_size)
-            response_data = json.loads(response.decode('utf-8'))
-            print(f"Received response: {response_data}")
-            
+            # 使用新的接收方法
+            response_data = self._recv_response()
+            if response_data is None:
+                return False
+                
             # 检查响应
             if response_data.get("state") == "current_trajectory_state":
                 trajectory_state = response_data.get("trajectory_state", False)
@@ -130,10 +157,6 @@ class RoboticArm:
                 print("Unexpected response format")
                 return False
                 
-        except socket.timeout:
-            print("Timeout while waiting for response")
-            return False
-            
         except Exception as e:
             print(f"Error during moveJ: {str(e)}")
             return False
@@ -177,13 +200,13 @@ class RoboticArm:
             # 发送命令，确保以\r\n结尾
             command_str = json.dumps(command) + "\r\n"
             self.socket.sendall(command_str.encode('utf-8'))
-            print(f"Sent command: {command_str.strip()}")  # strip()用于打印时去除结尾的\r\n
+            print(f"Sent command: {command_str.strip()}")
             
-            # 接收响应
-            response = self.socket.recv(self.buffer_size)
-            response_data = json.loads(response.decode('utf-8'))
-            print(f"Received response: {response_data}")
-            
+            # 使用新的接收方法
+            response_data = self._recv_response()
+            if response_data is None:
+                return False
+                
             # 检查响应
             if response_data.get("state") == "current_trajectory_state":
                 trajectory_state = response_data.get("trajectory_state", False)
@@ -196,10 +219,6 @@ class RoboticArm:
                 print("Unexpected response format")
                 return False
                 
-        except socket.timeout:
-            print("Timeout while waiting for response")
-            return False
-            
         except Exception as e:
             print(f"Error during moveL: {str(e)}")
             return False
@@ -258,13 +277,13 @@ class RoboticArm:
             # 发送命令，确保以\r\n结尾
             command_str = json.dumps(command) + "\r\n"
             self.socket.sendall(command_str.encode('utf-8'))
-            print(f"Sent command: {command_str.strip()}")  # strip()用于打印时去除结尾的\r\n
+            print(f"Sent command: {command_str.strip()}")
             
-            # 接收响应
-            response = self.socket.recv(self.buffer_size)
-            response_data = json.loads(response.decode('utf-8'))
-            print(f"Received response: {response_data}")
-            
+            # 使用新的接收方法
+            response_data = self._recv_response()
+            if response_data is None:
+                return False
+                
             # 检查响应
             if response_data.get("state") == "current_trajectory_state":
                 trajectory_state = response_data.get("trajectory_state", False)
@@ -277,10 +296,6 @@ class RoboticArm:
                 print("Unexpected response format")
                 return False
                 
-        except socket.timeout:
-            print("Timeout while waiting for response")
-            return False
-            
         except Exception as e:
             print(f"Error during moveC: {str(e)}")
             return False
@@ -308,11 +323,11 @@ class RoboticArm:
             self.socket.sendall(command_str.encode('utf-8'))
             print(f"Sent command: {command_str.strip()}")
             
-            # 接收响应
-            response = self.socket.recv(self.buffer_size)
-            response_data = json.loads(response.decode('utf-8'))
-            print(f"Received response: {response_data}")
-            
+            # 使用新的接收方法
+            response_data = self._recv_response()
+            if response_data is None:
+                return None
+                
             # 检查响应
             if response_data.get("state") == "joint_degree":
                 joint_angles = response_data.get("joint", [])
@@ -324,10 +339,6 @@ class RoboticArm:
                 print("Unexpected response format")
                 return None
                 
-        except socket.timeout:
-            print("Timeout while waiting for response")
-            return None
-            
         except Exception as e:
             print(f"Error during get_joint_degree: {str(e)}")
             return None
@@ -364,10 +375,10 @@ class RoboticArm:
             self.socket.sendall(command_str.encode('utf-8'))
             print(f"Sent command: {command_str.strip()}")
             
-            # 接收响应
-            response = self.socket.recv(self.buffer_size)
-            response_data = json.loads(response.decode('utf-8'))
-            print(f"Received response: {response_data}")
+            # 使用_recv_response方法接收响应
+            response_data = self._recv_response()
+            if response_data is None:
+                return None
             
             # 检查响应
             if response_data.get("state") == "current_arm_state":
@@ -413,10 +424,6 @@ class RoboticArm:
                 print("Unexpected response format")
                 return None
                 
-        except socket.timeout:
-            print("Timeout while waiting for response")
-            return None
-            
         except Exception as e:
             print(f"Error during get_current_arm_state: {str(e)}")
             return None
@@ -462,11 +469,11 @@ class RoboticArm:
             self.socket.sendall(command_str.encode('utf-8'))
             print(f"Sent command: {command_str.strip()}")
             
-            # 接收响应
-            response = self.socket.recv(self.buffer_size)
-            response_data = json.loads(response.decode('utf-8'))
-            print(f"Received response: {response_data}")
-            
+            # 使用新的接收方法
+            response_data = self._recv_response()
+            if response_data is None:
+                return False
+                
             # 检查响应
             if response_data.get("state") == "current_trajectory_state":
                 trajectory_state = response_data.get("trajectory_state", False)
@@ -479,10 +486,6 @@ class RoboticArm:
                 print("Unexpected response format")
                 return False
                 
-        except socket.timeout:
-            print("Timeout while waiting for response")
-            return False
-            
         except Exception as e:
             print(f"Error during moveJ_P: {str(e)}")
             return False
@@ -492,7 +495,7 @@ def main():
     arm = RoboticArm()
     
     # 测试连接
-    ip = input("Enter IP address to connect (default: 127.0.0.1): ") or "127.0.0.1"
+    ip = input("Enter IP address to connect (default: 192.168.1.18): ") or "192.168.1.18"
     if arm.connect(ip):
         print("Connection test successful")
         
@@ -520,42 +523,42 @@ def main():
             else:
                 print("Get joint degree test failed")
             
-            # 测试关节运动
-            print("\nTesting moveJ...")
-            joint_angles = [10.1, 0.2, 20.3, 30.4, 0.5, 20.6]
-            success = arm.moveJ(joint_angles, velocity=50)
-            if success:
-                print("MoveJ test successful")
-            else:
-                print("MoveJ test failed")
+            # # 测试关节运动
+            # print("\nTesting moveJ...")
+            # joint_angles = [10.1, 0.2, 20.3, 30.4, 0.5, 20.6]
+            # success = arm.moveJ(joint_angles, velocity=50)
+            # if success:
+            #     print("MoveJ test successful")
+            # else:
+            #     print("MoveJ test failed")
             
-            # 测试直线运动
-            print("\nTesting moveL...")
-            pose = [100, 200, 30, 0.4, 0.5, 0.6]  # [x,y,z,rx,ry,rz]，位置单位：毫米，姿态单位：弧度
-            success = arm.moveL(pose, velocity=50)
-            if success:
-                print("MoveL test successful")
-            else:
-                print("MoveL test failed")
+            # # 测试直线运动
+            # print("\nTesting moveL...")
+            # pose = [100, 200, 30, 0.4, 0.5, 0.6]  # [x,y,z,rx,ry,rz]，位置单位：毫米，姿态单位：弧度
+            # success = arm.moveL(pose, velocity=50)
+            # if success:
+            #     print("MoveL test successful")
+            # else:
+            #     print("MoveL test failed")
                 
-            # 测试圆弧运动
-            print("\nTesting moveC...")
-            pose_via = [100, 200, 30, 0.4, 0.5, 0.6]
-            pose_to = [200, 300, 30, 0.4, 0.5, 0.6]
-            success = arm.moveC(pose_via, pose_to, velocity=50)
-            if success:
-                print("MoveC test successful")
-            else:
-                print("MoveC test failed")
+            # # 测试圆弧运动
+            # print("\nTesting moveC...")
+            # pose_via = [100, 200, 30, 0.4, 0.5, 0.6]
+            # pose_to = [200, 300, 30, 0.4, 0.5, 0.6]
+            # success = arm.moveC(pose_via, pose_to, velocity=50)
+            # if success:
+            #     print("MoveC test successful")
+            # else:
+            #     print("MoveC test failed")
                 
             # 测试关节空间位姿规划
-            print("\nTesting moveJ_P...")
-            pose = [100, 200, 30, 0.4, 0.5, 0.6]  # [x,y,z,rx,ry,rz]，位置单位：毫米，姿态单位：弧度
-            success = arm.moveJ_P(pose, velocity=50)
-            if success:
-                print("MoveJ_P test successful")
-            else:
-                print("MoveJ_P test failed")
+            # print("\nTesting moveJ_P...")
+            # pose = [100, 200, 30, 0.4, 0.5, 0.6]  # [x,y,z,rx,ry,rz]，位置单位：毫米，姿态单位：弧度
+            # success = arm.moveJ_P(pose, velocity=50)
+            # if success:
+            #     print("MoveJ_P test successful")
+            # else:
+            #     print("MoveJ_P test failed")
                 
         finally:
             # 断开连接
