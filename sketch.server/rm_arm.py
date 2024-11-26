@@ -177,7 +177,7 @@ class RoboticArm:
         if not self.is_connected():
             print("Not connected to server")
             return False
-            
+
         try:
             # 转换位姿值为整数
             pose_int = [
@@ -534,6 +534,7 @@ def main():
             
             # # 测试直线运动
             # print("\nTesting moveL...")
+            # pose = [-303.9, 151.029, 148.018, -3.092, -0.011, -0.359]
             # pose = [100, 200, 30, 0.4, 0.5, 0.6]  # [x,y,z,rx,ry,rz]，位置单位：毫米，姿态单位：弧度
             # success = arm.moveL(pose, velocity=50)
             # if success:

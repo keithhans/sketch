@@ -13,9 +13,9 @@ from pathlib import Path
 # 机械臂的工作范围
 ARM_X_MIN = -400
 ARM_X_MAX = -200
-ARM_Y_MIN = 200
-ARM_Y_MAX = -100
-ARM_Z_DIFF = 59
+ARM_Y_MIN = -150
+ARM_Y_MAX = 150
+ARM_Z_DIFF = 30
 ARM_Z_UP = 150
 
 class SketchServer:
@@ -165,6 +165,7 @@ class SketchServer:
                         chunk = await reader.read(4096)
                         if not chunk:
                             print(f"Client {addr} disconnected")
+                            self.rm.moveL([-303.9, 151.029, self.arm_z_up, -3.092, -0.011, -0.359], 10)
                             time.sleep(2)
                             return
                         
@@ -194,7 +195,7 @@ class SketchServer:
                                 time.sleep(0.27)
                                 
                                 # 获取实际位置并记录
-                                state = self.arm.get_current_arm_state()
+                                state = self.rm.get_current_arm_state()
                                 actual_coords = state['pose']['position']
 
                                 if actual_coords and len(actual_coords) >= 2:
@@ -249,7 +250,7 @@ class SketchServer:
                         self.save_config()
                         
                         # 立即移动到新的高度以展示效果
-                        state = self.arm.get_current_arm_state()
+                        state = self.rm.get_current_arm_state()
                         current_coords = state['pose']['position']
 
                         if current_coords:
