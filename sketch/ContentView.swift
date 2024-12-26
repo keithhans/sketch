@@ -356,7 +356,8 @@ struct Line {
             let currentAngle = angle(between: points[i], points[i+1])
             let angleDifference = abs(currentAngle - lastAngle)
 
-            if angleDifference > 10 * .pi / 180 || timestamps[i+1] - newTimestamps.last! > 0.03 {
+            // if angleDifference > 10 * .pi / 180 || timestamps[i+1] - newTimestamps.last! > 0.03 {
+            if angleDifference > 10 * .pi / 180 {
                 newPoints.append(points[i])
                 newTimestamps.append(timestamps[i])
                 lastAngle = currentAngle
